@@ -1,8 +1,10 @@
 # ips_pyhton_module
 
-## Environment setup
+## Getting Started
 
-Create an environment (python 3.8 or newer)
+### Creating the virtual environment
+
+Create an environment (python 3.8 or newer) in the repo's root,
 
 ```
 python -m venv .venv
