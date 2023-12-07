@@ -1,3 +1,4 @@
+"""Module to control IPS laser by comunnicating in serial with pyvisa"""
 import time
 
 import pyvisa
@@ -6,7 +7,12 @@ SUPPORTED_DEVICES = ["IPS"]
 
 
 def list_lasers() -> dict:
-    list_lasers = {}
+    """Returns the supported devices (lasers) connected to the comports
+
+    Returns:
+        dict: python dict of connected devices (lasers) with the ports as keys and their names as values
+    """
+    dic_lasers = {}
     rm = pyvisa.ResourceManager("@py")
     ressource_names = rm.list_resources()
     print(ressource_names)
@@ -16,14 +22,14 @@ def list_lasers() -> dict:
             device.timeout = 50
             idn = device.query("*IDN?")
         except:
-            ##pyvisa.errors.VisaIOError:
+            # pyvisa.errors.VisaIOError:
             continue
 
         for device in SUPPORTED_DEVICES:
             if device in idn:
-                list_lasers[name] = idn.strip()
+                dic_lasers[name] = idn.strip()
 
-    return list_lasers
+    return dic_lasers
 
 
 class IpsLaser:
@@ -32,6 +38,7 @@ class IpsLaser:
     def __init__(self):
         self.idn = None
         self.comport = None
+        self.serial = None
         self.status = "not connected"
         self.isconnected = False
         self.laser_current = None
@@ -378,7 +385,7 @@ class IpsLaser:
         err_code, err_message = self.write("Parameters:Save")
         return err_code, err_message
 
-    def status(self):
+    def get_status(self):
         """Requests the status of the digital U-type
 
         Response : 2 decimal numbers; the first number represents the board state:
