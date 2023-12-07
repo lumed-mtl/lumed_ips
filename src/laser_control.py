@@ -1,7 +1,6 @@
 import time
 
 import pyvisa
-import serial
 
 SUPPORTED_DEVICES = ["IPS"]
 
