@@ -19,7 +19,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.laser = IpsLaser()
         self.update_timer = QTimer()
         self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self.resync_ui)
+        self.update_timer.timeout.connect(self.get_laser_info)
         self.update_laser_choice()
         self.setup_signals_slots()
 
@@ -33,11 +33,12 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.pushButton_off.clicked.connect(self.disable)
         self.pushButton_pulse.clicked.connect(self.pulse)
 
-    def update_laser_choice(self):  # TODO: remove all and add
+    def update_laser_choice(self):
         """Add the devices ports and names to the comboBox"""
         if self.laser.isconnected == False:
             dic_laser = list_lasers()
             self.list_ports = list(dic_laser.keys())
+            self.comboBox_devices.clear()
             for port in self.list_ports:
                 self.comboBox_devices.addItem(dic_laser[port])
 
@@ -51,7 +52,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 print("No lasers")
             if self.laser.connect() == "Succes":
                 self.laser.set_laser_current(self.spinBox_current.value())
-                self.resync_ui()
+                self.get_laser_info()
                 self.update_timer.start()
             else:
                 print("Connection failed")
@@ -59,7 +60,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def disconnect_laser(self):
         self.laser.disconnect()
         self.update_timer.stop()
-        self.resync_ui()
+        self.get_laser_info()
 
     def update_current(self):
         if self.laser.isconnected:
@@ -81,7 +82,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         else:
             self.label_pulse_info.setText("Not connected")
 
-    def resync_ui(self):
+    def get_laser_info(self):
         info_dict = self.laser.get_info()
         self.label_status.setText(info_dict["status"])
         self.label_current_status.setText(info_dict["current"])
