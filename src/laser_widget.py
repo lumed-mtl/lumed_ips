@@ -1,16 +1,19 @@
+"""User Interface (UI) for the control of IPS lasers with the IPSLaser class imported from the laser_control module"""
 import sys
 
 from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QHBoxLayout, QMainWindow, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
 from laser_control import IpsLaser, list_lasers
 from Ui.laser_ui import Ui_LaserControl
 
-# TODO : check pulse and on button (fct in resync_ui), same for laser controls and connect disconnect
+# TODO: check pulse and on button (fct in resync_ui), same for laser controls and connect disconnect
 
 
 # Subclass IpsLaserWidget to customize your widget Ui_Form
 class IpsLaserwidget(QWidget, Ui_LaserControl):
+    """User Interface for laser control"""
+
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -35,7 +38,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
     def update_laser_choice(self):
         """Add the devices ports and names to the comboBox"""
-        if self.laser.isconnected == False:
+        if self.laser.isconnected is False:
             dic_laser = list_lasers()
             self.list_ports = list(dic_laser.keys())
             self.comboBox_devices.clear()
@@ -43,7 +46,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 self.comboBox_devices.addItem(dic_laser[port])
 
     def connect_laser(self):
-        if self.laser.isconnected == False:
+        if self.laser.isconnected is False:
             try:
                 self.laser.comport = self.list_ports[
                     self.comboBox_devices.currentIndex()
