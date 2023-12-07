@@ -3,6 +3,7 @@ psutil==5.9.6
 PyQt5==5.15.10
 PyQt5-Qt5==5.15.2
 PyQt5-sip==12.13.0
+pyserial==3.5
 PyVISA==1.14.1
 PyVISA-py==0.7.1
 typing_extensions==4.8.0
