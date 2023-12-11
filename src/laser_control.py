@@ -51,7 +51,7 @@ class IpsLaser:
             rm = pyvisa.ResourceManager("@py")
             self.serial = rm.open_resource(self.comport)
             self.idn = self.serial.query("*IDN?")
-            self.status = "connected"
+            self.status = "idle"
             self.isconnected = True
             time.sleep(3)
             return "Succes"
@@ -252,7 +252,7 @@ class IpsLaser:
         if state == 1:
             self.status = "ON"
         elif state == 0:
-            self.status = "connected"
+            self.status = "idle"
         return state, err_code, err_message
 
     def laser_hours(self):
