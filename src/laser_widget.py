@@ -35,6 +35,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.pushButton_on.clicked.connect(self.enable)
         self.pushButton_off.clicked.connect(self.disable)
         self.pushButton_pulse.clicked.connect(self.pulse)
+        self.enable_lasing_buttons(False)
 
     def update_laser_choice(self):
         """Add the devices ports and names to the comboBox"""
@@ -54,7 +55,8 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             except:
                 print("No lasers")
             if self.laser.connect() == "Succes":
-                self.laser.set_laser_current(self.spinBox_current.value())
+                self.enable_lasing_buttons(True)
+                self.enable_new_connections(False)
                 self.get_laser_info()
                 self.update_timer.start()
             else:
@@ -62,6 +64,8 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
     def disconnect_laser(self):
         self.laser.disconnect()
+        self.enable_lasing_buttons(False)
+        self.enable_new_connections(True)
         self.update_timer.stop()
         self.get_laser_info()
 
@@ -72,10 +76,12 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def enable(self):
         if self.laser.isconnected:
             self.laser.enable(1)
+            self.pushButton_pulse.setEnabled(False)
 
     def disable(self):
         if self.laser.isconnected:
             self.laser.enable(0)
+            self.pushButton_pulse.setEnabled(True)
 
     def pulse(self):
         if self.laser.isconnected:
@@ -96,10 +102,21 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         # display color status
         status_colors = {
             "ON": "QLabel { color : red; }",
-            "connected": "QLabel { color : blue; }",
+            "idle": "QLabel { color : blue; }",
             "not connected": "QLabel { color : black; }",
         }
         self.label_status.setStyleSheet(status_colors[info_dict["status"]])
+
+    def enable_lasing_buttons(self, enable: bool):
+        self.pushButton_on.setEnabled(enable)
+        self.pushButton_off.setEnabled(enable)
+        self.pushButton_pulse.setEnabled(enable)
+        self.spinBox_current.setEnabled(enable)
+        self.spinBox_pduration.setEnabled(enable)
+
+    def enable_new_connections(self, enable: bool):
+        self.pushButton_connect.setEnabled(enable)
+        self.pushButton_update.setEnabled(enable)
 
 
 if __name__ == "__main__":
