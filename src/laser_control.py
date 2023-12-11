@@ -62,6 +62,7 @@ class IpsLaser:
         """Close the serial connection to the laser,
         disable laser if enabled"""
         try:
+            self.enable(0)
             self.serial.close()
             self.status = "not connected"
             self.isconnected = False
@@ -541,14 +542,17 @@ class IpsLaser:
 
     def get_info(self) -> dict:
         info_dict = {}
-        info_dict["status"] = self.status
         if self.isconnected:
+            self.get_enable_state()  # update self.status
+            info_dict["status"] = self.status
             info_dict["comport"] = self.comport
             info_dict["current"] = str(self.get_laser_current()[0])
             info_dict["power"] = str(self.get_laser_power()[0])
             info_dict["temperature"] = str(round(self.get_laser_temperature()[0], 1))
             info_dict["error"] = self.error()
+
         else:
+            info_dict["status"] = self.status
             info_dict["comport"] = "None"
             info_dict["current"] = "None"
             info_dict["power"] = "None"
