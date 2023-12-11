@@ -7,8 +7,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 from laser_control import IpsLaser, list_lasers
 from Ui.laser_ui import Ui_LaserControl
 
-# TODO: check pulse and on button (fct in resync_ui), same for laser controls and connect disconnect
-
 
 # Subclass IpsLaserWidget to customize your widget Ui_Form
 class IpsLaserwidget(QWidget, Ui_LaserControl):
@@ -75,6 +73,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
     def enable(self):
         if self.laser.isconnected:
+            self.laser.set_laser_current(self.spinBox_current.value())
             self.laser.enable(1)
             self.pushButton_pulse.setEnabled(False)
 
