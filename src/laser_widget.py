@@ -7,6 +7,13 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 from laser_control import IpsLaser, list_lasers
 from Ui.laser_ui import Ui_LaserControl
 
+LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
+STATE_COLORS = {
+    0: "QLabel { color : blue; }",
+    1: "QLabel { color : red; }",
+    2: "QLabel { color : black; }",
+}
+
 
 # Subclass IpsLaserWidget to customize your widget Ui_Form
 class IpsLaserwidget(QWidget, Ui_LaserControl):
@@ -20,7 +27,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.laser = IpsLaser()
         self.update_timer = QTimer()
         self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self.get_laser_info)
+        self.update_timer.timeout.connect(self.update_ui)
         self.update_laser_choice()
         self.setup_signals_slots()
 
@@ -33,7 +40,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.pushButton_on.clicked.connect(self.enable)
         self.pushButton_off.clicked.connect(self.disable)
         self.pushButton_pulse.clicked.connect(self.pulse)
-        self.enable_lasing_buttons(False)
+        self.buttons_enabling(self.laser.status)
 
     def update_laser_choice(self):
         """Add the devices ports and names to the comboBox"""
@@ -53,19 +60,15 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             except:
                 print("No lasers")
             if self.laser.connect() == "Succes":
-                self.enable_lasing_buttons(True)
-                self.enable_new_connections(False)
-                self.get_laser_info()
+                self.update_ui()
                 self.update_timer.start()
             else:
                 print("Connection failed")
 
     def disconnect_laser(self):
         self.laser.disconnect()
-        self.enable_lasing_buttons(False)
-        self.enable_new_connections(True)
         self.update_timer.stop()
-        self.get_laser_info()
+        self.update_ui()
 
     def update_current(self):
         if self.laser.isconnected:
@@ -75,12 +78,10 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         if self.laser.isconnected:
             self.laser.set_laser_current(self.spinBox_current.value())
             self.laser.enable(1)
-            self.pushButton_pulse.setEnabled(False)
 
     def disable(self):
         if self.laser.isconnected:
             self.laser.enable(0)
-            self.pushButton_pulse.setEnabled(True)
 
     def pulse(self):
         if self.laser.isconnected:
@@ -90,21 +91,29 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         else:
             self.label_pulse_info.setText("Not connected")
 
-    def get_laser_info(self):
+    def update_ui(self):
+        # laser info
         info_dict = self.laser.get_info()
-        self.label_status.setText(info_dict["status"])
+        self.label_status.setText(LASER_STATE[info_dict["status"]])
+        self.label_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
         self.label_current_status.setText(info_dict["current"])
         self.label_power_status.setText(info_dict["power"])
         self.label_temp_status.setText(info_dict["temperature"])
         # self.label_error_hardware.setText(info_dict["error"]) #TODO: add error somewhere
+        # buttons
+        self.buttons_enabling(info_dict["status"])
 
-        # display color status
-        status_colors = {
-            "ON": "QLabel { color : red; }",
-            "idle": "QLabel { color : blue; }",
-            "not connected": "QLabel { color : black; }",
-        }
-        self.label_status.setStyleSheet(status_colors[info_dict["status"]])
+    def buttons_enabling(self, state: int):
+        if state == 2:
+            self.enable_new_connections(True)
+            self.enable_lasing_buttons(False)
+        elif state == 1:
+            self.enable_new_connections(False)
+            self.enable_lasing_buttons(True)
+            self.pushButton_pulse.setEnabled(False)
+        elif state == 0:
+            self.enable_new_connections(False)
+            self.enable_lasing_buttons(True)
 
     def enable_lasing_buttons(self, enable: bool):
         self.pushButton_on.setEnabled(enable)
