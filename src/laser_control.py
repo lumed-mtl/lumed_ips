@@ -4,6 +4,7 @@ import time
 import pyvisa
 
 SUPPORTED_DEVICES = ["IPS"]
+LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 
 
 def list_lasers() -> dict:
@@ -39,7 +40,7 @@ class IpsLaser:
         self.idn = None
         self.comport = None
         self.serial = None
-        self.status = "not connected"
+        self.status = 2
         self.isconnected = False
         self.laser_current = None
         self.laser_temp = None
@@ -51,7 +52,7 @@ class IpsLaser:
             rm = pyvisa.ResourceManager("@py")
             self.serial = rm.open_resource(self.comport)
             self.idn = self.serial.query("*IDN?")
-            self.status = "connected"
+            self.status = 0
             self.isconnected = True
             time.sleep(3)
             return "Succes"
@@ -62,8 +63,9 @@ class IpsLaser:
         """Close the serial connection to the laser,
         disable laser if enabled"""
         try:
+            self.enable(0)
             self.serial.close()
-            self.status = "not connected"
+            self.status = 2
             self.isconnected = False
             self.idn = None
             return "SUCCESS"
@@ -249,10 +251,7 @@ class IpsLaser:
         <err_message> : communication error message"""
         state, err_code, err_message = self.write_read("Laser:Enable?")
         state = int(state)
-        if state == 1:
-            self.status = "ON"
-        elif state == 0:
-            self.status = "connected"
+        self.status = state
         return state, err_code, err_message
 
     def laser_hours(self):
@@ -541,14 +540,17 @@ class IpsLaser:
 
     def get_info(self) -> dict:
         info_dict = {}
-        info_dict["status"] = self.status
         if self.isconnected:
+            self.get_enable_state()  # update self.status
+            info_dict["status"] = self.status
             info_dict["comport"] = self.comport
             info_dict["current"] = str(self.get_laser_current()[0])
             info_dict["power"] = str(self.get_laser_power()[0])
             info_dict["temperature"] = str(round(self.get_laser_temperature()[0], 1))
             info_dict["error"] = self.error()
+
         else:
+            info_dict["status"] = self.status
             info_dict["comport"] = "None"
             info_dict["current"] = "None"
             info_dict["power"] = "None"
@@ -578,18 +580,18 @@ class IpsLaser:
 if __name__ == "__main__":
     ips = IpsLaser()
     ips.comport = list(list_lasers().keys())[0]
-    print(ips.status)
+    print(LASER_STATE[ips.status])
     ips.connect()
-    print(ips.status)
+    print(LASER_STATE[ips.status])
     print(ips.identification())
     command = input("Command :")
     while command != "exit":
         if command == "enable":
             print(ips.enable(1))
-            print(ips.status)
+            print(LASER_STATE[ips.status])
         elif command == "disable":
             print(ips.enable(0))
-            print(ips.status)
+            print(LASER_STATE[ips.status])
         elif command == "state":
             print(ips.get_enable_state())
         elif command == "current":
@@ -604,4 +606,4 @@ if __name__ == "__main__":
             print(ips.error())
         command = input("Enter command :")
     ips.disconnect()
-    print(ips.status)
+    print(LASER_STATE[ips.status])
