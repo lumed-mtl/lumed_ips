@@ -87,9 +87,6 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         if self.laser.isconnected:
             duration = self.spinBox_pduration.value()
             success = self.laser.pulse(duration)
-            self.label_pulse_info.setText(success)
-        else:
-            self.label_pulse_info.setText("Not connected")
 
     def update_ui(self):
         # laser info
