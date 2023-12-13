@@ -54,7 +54,7 @@ class IpsLaser:
             self.idn = self.serial.query("*IDN?")
             self.status = 0
             self.isconnected = True
-            time.sleep(3)
+            # time.sleep(0.5)
             return "Succes"
         except Exception as e:
             return str(e)

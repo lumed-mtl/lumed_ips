@@ -23,13 +23,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         super().__init__()
         self.setupUi(self)
 
-        # ui parameters
         self.laser = IpsLaser()
-        self.update_timer = QTimer()
-        self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self.update_ui)
-        self.update_laser_choice()
+        # ui parameters
         self.setup_signals_slots()
+        self.setup_update_timer()
+        self.update_laser_choice()
 
     def setup_signals_slots(self):
         """Connects the UI buttons and text infos to the IpsLaserclass()"""
@@ -41,6 +39,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.pushButton_off.clicked.connect(self.disable)
         self.pushButton_pulse.clicked.connect(self.pulse)
         self.buttons_enabling(self.laser.status)
+
+    def setup_update_timer(self):
+        self.update_timer = QTimer()
+        self.update_timer.setInterval(100)
+        self.update_timer.timeout.connect(self.update_ui)
 
     def update_laser_choice(self):
         """Add the devices ports and names to the comboBox"""
@@ -60,6 +63,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             except:
                 print("No lasers")
             if self.laser.connect() == "Succes":
+                self.spinBox_current.setProperty("value", 1)  # set current to 1
                 self.update_ui()
                 self.update_timer.start()
             else:
@@ -86,7 +90,10 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def pulse(self):
         if self.laser.isconnected:
             duration = self.spinBox_pduration.value()
-            success = self.laser.pulse(duration)
+            pulse_timer = QTimer()
+            pulse_timer.singleShot(duration, self.disable)
+            self.enable()
+            pulse_timer.start()
 
     def update_ui(self):
         # laser info
@@ -107,6 +114,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         elif state == 1:
             self.enable_new_connections(False)
             self.enable_lasing_buttons(True)
+            self.pushButton_on.setEnabled(False)
             self.pushButton_pulse.setEnabled(False)
         elif state == 0:
             self.enable_new_connections(False)
