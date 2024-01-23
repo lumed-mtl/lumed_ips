@@ -65,13 +65,13 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 self.laser.comport = self.list_ports[
                     self.comboBox_devices.currentIndex()
                 ]
-                connect = self.laser.connect()
-                if connect == "Succes":
+                connection = self.laser.connect()
+                if connection == "Succes":
                     self.spinBox_current.setProperty("value", 1)  # set current to 1
                     self.update_ui()
                     self.update_timer.start()
                 else:
-                    print(connect)
+                    print(connection)
                     print("Connection failed")
             # catch error if combobox is empty
             except IndexError as e:
