@@ -23,7 +23,8 @@ def list_lasers() -> dict:
             device = rm.open_resource(name)
             device.timeout = 50
             idn = device.query("*IDN?")
-        except pyvisa.errors.VisaIOError:
+        except Exception as e:
+            print(e)
             continue
 
         for device in SUPPORTED_DEVICES:
