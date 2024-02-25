@@ -1,4 +1,5 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
+
 import time
 
 import pyvisa
@@ -56,7 +57,7 @@ class IpsLaser:
             self.status = 0
             self.isconnected = True
             # time.sleep(0.5)
-            return "Succes"
+            return "Success"
         except Exception as e:
             return str(e)
 
@@ -69,7 +70,7 @@ class IpsLaser:
             self.status = 2
             self.isconnected = False
             self.idn = None
-            return "SUCCESS"
+            return "Success"
         except Exception as e:
             return str(e)
 
