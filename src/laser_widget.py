@@ -34,7 +34,6 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.setup_signals_slots()
         self.setup_update_timer()
         self.update_laser_choice()
-        self.update_ui
         self.logger.info("Widget launch is done")
 
     def create_logger(self):
