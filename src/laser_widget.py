@@ -162,11 +162,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         """Generates a pulse with the value (in ms) in the pulse duration spinBox."""
         if self.laser.isconnected:
             duration = self.spinBox_pduration.value()
+            self.logger.info("Generating pulse of %d ms", duration)
             pulse_timer = QTimer()
             pulse_timer.singleShot(duration, self.disable)
             self.enable()
             pulse_timer.start()
-            self.logger.info("Generating pulse of %d ms", duration)
 
     def update_ui(self):
         """Gets the laser current inforamtions and state and
@@ -190,14 +190,19 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         if state == 2:
             self.enable_new_connections(True)
             self.enable_lasing_buttons(False)
+            self.logger.info(
+                "Modifying buttons display for laser state : Not connected"
+            )
         elif state == 1:
             self.enable_new_connections(False)
             self.enable_lasing_buttons(True)
             self.pushButton_on.setEnabled(False)
             self.pushButton_pulse.setEnabled(False)
+            self.logger.info("Modifying buttons display for laser state : ON")
         elif state == 0:
             self.enable_new_connections(False)
             self.enable_lasing_buttons(True)
+            self.logger.info("Modifying buttons display for laser state : Idle")
 
     def enable_lasing_buttons(self, enable: bool):
         """Enables or disable the buttons of the UI related to the lasing.
