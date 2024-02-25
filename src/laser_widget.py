@@ -1,5 +1,8 @@
 """User Interface (UI) for the control of IPS lasers with the IPSLaser() class 
 imported from the laser_control module"""
+
+import logging
+import os
 import sys
 
 from PyQt5.QtCore import QTimer
@@ -23,12 +26,40 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.create_logger()
+        self.logger.info("Widget intialization")
 
         self.laser = IpsLaser()
         # ui parameters
         self.setup_signals_slots()
         self.setup_update_timer()
         self.update_laser_choice()
+        self.update_ui
+        self.logger.info("Widget launch is done")
+
+    def create_logger(self):
+        """Create and setup the logging for the IPS control widget"""
+        # create logger
+        current_directory = os.getcwd()
+        folder_path = os.path.join(current_directory, "logs")
+        # Create the folder if it doesn't exist
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        LOG_FORMAT = (
+            "%(asctime)s - %(levelname)s"
+            "(%(filename)s:%(funcName)s)"
+            "(%(filename)s:%(lineno)d) - "
+            "%(message)s"
+        )
+
+        logging.basicConfig(
+            filename=os.path.join(folder_path, "logger.log"),
+            level=logging.DEBUG,
+            format=str(LOG_FORMAT),
+            filemode="w",
+        )
+        self.logger = logging.getLogger("IPSControlLogger")
 
     def setup_signals_slots(self):
         """Connects the UI buttons and text infos to the IpsLaser() class
@@ -51,54 +82,82 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
     def update_laser_choice(self):
         """Add the devices ports and names to the comboBox that allows laser connection."""
+        self.logger.info("Updating the connected devices")
         if self.laser.isconnected is False:
             dic_laser = list_lasers()
             self.list_ports = list(dic_laser.keys())
             self.comboBox_devices.clear()
             for port in self.list_ports:
                 self.comboBox_devices.addItem(dic_laser[port])
+                self.logger.info("Added device : %s to the comboBox", dic_laser[port])
 
     def connect_laser(self):
         """Connects the laser selected in the comboBox."""
         if self.laser.isconnected is False:
+            self.logger.info("Trying to connect to a device")
             try:
                 self.laser.comport = self.list_ports[
                     self.comboBox_devices.currentIndex()
                 ]
-                connection = self.laser.connect()
-                if connection == "Succes":
+                connected = self.laser.connect()
+                if connected == "Success":
                     self.spinBox_current.setProperty("value", 1)  # set current to 1
                     self.update_ui()
                     self.update_timer.start()
+                    self.logger.info(
+                        "Connection to %s succesfull",
+                        self.list_ports[self.comboBox_devices.currentIndex()],
+                    )
                 else:
-                    print(connection)
-                    print("Connection failed")
+                    self.logger.warning(
+                        "Connection to %s failed. Error messsage : %s",
+                        self.list_ports[self.comboBox_devices.currentIndex()],
+                        connected,
+                    )
             # catch error if combobox is empty
             except IndexError as e:
-                print(e)
-                print("No laser selected")
+                self.logger.warning(
+                    "Connection failed. Combobox error : %s, No laser selected.", e
+                )
 
     def disconnect_laser(self):
-        """Disconnects the laser that is currently connected."""
-        self.laser.disconnect()
-        self.update_timer.stop()
-        self.update_ui()
+        """Disconnects the laser that is currently connected"""
+        self.logger.info("Trying to disconnect from a device")
+        disconnected = self.laser.disconnect()
+        if disconnected == "Success":
+            self.update_timer.stop()
+            self.update_ui()
+            self.logger.info("Disconnection succesfull")
+        else:
+            self.logger.warning(
+                "Disconnection failed. Error messsage : %s",
+                disconnected,
+            )
 
     def update_current(self):
         """Updates the laser current with the value in the spinBox."""
         if self.laser.isconnected:
             self.laser.set_laser_current(self.spinBox_current.value())
+            self.logger.info("Laser current set to %d", self.spinBox_current.value())
 
     def enable(self):
         """Enables the lasing with the laser current selected in the laser current spinBox."""
         if self.laser.isconnected:
             self.laser.set_laser_current(self.spinBox_current.value())
             self.laser.enable(1)
+            self.logger.info(
+                "Lasing enabled, laser enable state: %d",
+                self.laser.get_enable_state(),
+            )
 
     def disable(self):
-        """Diables the lasing."""
+        """Disables the lasing."""
         if self.laser.isconnected:
             self.laser.enable(0)
+            self.logger.info(
+                "Lasing disabled, laser enable state: %d",
+                self.laser.get_enable_state(),
+            )
 
     def pulse(self):
         """Generates a pulse with the value (in ms) in the pulse duration spinBox."""
@@ -108,6 +167,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             pulse_timer.singleShot(duration, self.disable)
             self.enable()
             pulse_timer.start()
+            self.logger.info("Generating pulse of %d ms", duration)
 
     def update_ui(self):
         """Gets the laser current inforamtions and state and
@@ -119,7 +179,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.label_current_status.setText(info_dict["current"])
         self.label_power_status.setText(info_dict["power"])
         self.label_temp_status.setText(info_dict["temperature"])
-        # self.label_error_hardware.setText(info_dict["error"]) #TODO: add error somewhere
+        print(info_dict["error"])  # TODO: add error in the logging
         # buttons
         self.buttons_enabling(info_dict["status"])
 
