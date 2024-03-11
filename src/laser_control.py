@@ -1,13 +1,20 @@
+"""Module to control IPS laser by comunnicating in serial with pyvisa."""
 import time
 
 import pyvisa
-import serial
 
 SUPPORTED_DEVICES = ["IPS"]
+LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 
 
 def list_lasers() -> dict:
-    list_lasers = {}
+    """Returns the supported devices (lasers) connected to the comports.
+
+    Returns:
+        dict: python dict of connected devices (lasers) with the ports as keys
+        and their names as values.
+    """
+    dic_lasers = {}
     rm = pyvisa.ResourceManager("@py")
     ressource_names = rm.list_resources()
     print(ressource_names)
@@ -16,60 +23,59 @@ def list_lasers() -> dict:
             device = rm.open_resource(name)
             device.timeout = 50
             idn = device.query("*IDN?")
-        except:
-            ##pyvisa.errors.VisaIOError:
+        except Exception as e:
+            print(e)
             continue
 
         for device in SUPPORTED_DEVICES:
             if device in idn:
-                list_lasers[name] = idn.strip()
+                dic_lasers[name] = idn.strip()
 
-    return list_lasers
+    return dic_lasers
 
 
 class IpsLaser:
-    """Control IPS Dual Laser"""
+    """Control IPS Dual Laser."""
 
     def __init__(self):
         self.idn = None
         self.comport = None
-        self.status = "not connected"
+        self.serial = None
+        self.status = 2
         self.isconnected = False
         self.laser_current = None
         self.laser_temp = None
         self.laser_power = None
 
     def connect(self):
-        """Open the serial connection to the laser"""
+        """Open the serial connection to the laser."""
         try:
             rm = pyvisa.ResourceManager("@py")
             self.serial = rm.open_resource(self.comport)
             self.idn = self.serial.query("*IDN?")
-            self.status = "connected"
+            self.status = 0
             self.isconnected = True
-            time.sleep(3)
+            # time.sleep(0.5)
             return "Succes"
         except Exception as e:
             return str(e)
 
     def disconnect(self):
         """Close the serial connection to the laser,
-        disable laser if enabled"""
+        disable laser if enabled."""
         try:
+            self.enable(0)
             self.serial.close()
-            self.status = "not connected"
+            self.status = 2
             self.isconnected = False
             self.idn = None
             return "SUCCESS"
         except Exception as e:
             return str(e)
 
-    def set_default_settings(self):
-        None
-
     def identification(self):
         """Reports the device identification string. Will read back:
-        IPS, HPU, laser serial number, factory measured wavelength, FW revision
+        IPS, HPU, laser serial number, factory measured wavelength, FW revision.
 
         Returns: <idn> : device identification string
         <err_code> : communication error code
@@ -79,7 +85,7 @@ class IpsLaser:
         return self.idn, err_code, err_message
 
     def get_board_current(self):
-        """Reports the measured current draw in mA
+        """Reports the measured current draw in mA.
 
         Returns: <board_current> : measured current draw in mA
         <err_code> : communication error code
@@ -89,7 +95,7 @@ class IpsLaser:
         return board_current, err_code, err_message
 
     def get_board_temperature(self):
-        """Reports the module case temperature in °C
+        """Reports the module case temperature in °C.
 
         Returns: <board_temp> : module case temperature in °C
         <err_code> : communication error code
@@ -116,7 +122,7 @@ class IpsLaser:
         return err_code, err_message
 
     def get_calibrate_number(self):
-        """Reports number of entries in the LUT
+        """Reports number of entries in the LUT.
 
         Returns: <cal_num> : number of entries in the LUT
         <err_code> : communication error code
@@ -126,7 +132,7 @@ class IpsLaser:
         return cal_num, err_code, err_message
 
     def set_calibrate_monitor(self, num: int, value: int, save_state: int = 0):
-        """Sets photodiode (PD) monitor value in LUT in mV
+        """Sets photodiode (PD) monitor value in LUT in mV.
 
         Parameters:
         <num> (int) : the entry number in the LUT. Integers from 1 to 9
@@ -144,13 +150,14 @@ class IpsLaser:
         return err_code, err_message
 
     def get_calibrate_monitor(self, num: int):
-        """Reports the PD monitor value in the requested <num> LUT entry in mV
+        """Reports the PD monitor value in the requested <num> LUT entry in mV.
 
         Parameter: <num> (int) : the entry number in the LUT. Integers from 1 to 9
 
         Returns: <cal_mon> : PD monitor value in mV
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         cal_mon, err_code, err_message = self.write_read(
             "Calibrate:Monitor? " + str(num)
         )
@@ -158,7 +165,7 @@ class IpsLaser:
         return cal_mon, err_code, err_message
 
     def set_calibrate_power(self, num: int, value: float, save_state: int = 0):
-        """Sets LUT power value in mW
+        """Sets LUT power value in mW.
 
         Parameters:
         <num> (int) : the entry number in the LUT. Integers from 1 to 9
@@ -176,54 +183,58 @@ class IpsLaser:
         return err_code, err_message
 
     def get_calibrate_power(self, num: int):
-        """Reports the laser power value in the requested <num> LUT entry in mW
+        """Reports the laser power value in the requested <num> LUT entry in mW.
 
         Parameter: <num> (int) : the entry number in the LUT. Integers from 1 to 9
 
         Returns: <cal_pow> : laser power value in the LUT in mW
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         cal_pow, err_code, err_message = self.write_read("Calibrate:Power? " + str(num))
         cal_pow = float(cal_pow)
         return cal_pow, err_code, err_message
 
     def error(self):
-        """Returns the hardware error number, a sub-code, and a brief description"""
+        """Returns the hardware error number, a sub-code, and a brief description."""
         err = self.serial.query("Error?").strip()
         return err
 
     def set_laser_current(self, current: float):
-        """Sets laser operating current setpoint in mA
+        """Sets laser operating current setpoint in mA.
 
         Parameter : <current> is the laser operating current in mA
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Laser:Current " + str(current))
         return err_code, err_message
 
     def get_laser_current(self):
-        """Reports measured laser operating current in mA
+        """Reports measured laser operating current in mA.
 
         Returns: <laser_current> : measured laser operating current in mA
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         laser_current, err_code, err_message = self.write_read("Laser:Current?")
         self.laser_current = float(laser_current)
         return self.laser_current, err_code, err_message
 
     def get_laser_setpoint(self):
-        """Reports the laser operating current setpoint in mA
+        """Reports the laser operating current setpoint in mA.
 
         Returns: <setpoint> : laser operating current setpoint in mA
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         setpoint, err_code, err_message = self.write_read("Laser:Setpoint?")
         return setpoint, err_code, err_message
 
     def enable(self, enable: int):
-        """Controls whether the laser is enabled or disabled
+        """Controls whether the laser is enabled or disabled.
 
         Parameter : <enable> (int) : 1/ON = Enables the Laser, 0/OFF = Disables the laser
 
@@ -236,151 +247,170 @@ class IpsLaser:
         return err_code, err_message
 
     def get_enable_state(self):
-        """Reports laser enable state
+        """Reports laser enable state.
 
         Returns: <state> : laser enable state
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         state, err_code, err_message = self.write_read("Laser:Enable?")
         state = int(state)
-        if state == 1:
-            self.status = "ON"
-        elif state == 0:
-            self.status = "connected"
+        self.status = state
         return state, err_code, err_message
 
     def laser_hours(self):
-        """Reports the number of hours of ON time of the laser
+        """Reports the number of hours of ON time of the laser.
 
         Returns: <hours> : number of hours of ON time of the laser
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         hours, err_code, err_message = self.write_read("Laser:Hours?")
         return hours, err_code, err_message
 
     def enable_analog_mode(self, enable: int):
         """Enable/Disable VBIAS input from external hardware connection on pin 8 of module.
-        This function allows the user to adjust the output power of the laser via an external voltage bias.
+        This function allows the user to adjust the output power of the laser
+        via an external voltage bias.
 
-        Parameter : <enable> (int): 1/ON = Enables VBIAS input to control the laser current, 0/OFF = Disables external VBIAS input
+        Parameter : <enable> (int): 1/ON = Enables VBIAS input to control the laser current,
+        0/OFF = Disables external VBIAS input;
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Laser:Mode:Analog " + str(enable))
         return err_code, err_message
 
     def get_analog_mode_state(self):
-        """Reports the external VBIAS enable state
+        """Reports the external VBIAS enable state.
 
         Returns: <state> : external VBIAS enable state
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         state, err_code, err_message = self.write_read("Laser:Mode:Analog?")
         return state, err_code, err_message
 
     def enable_digital_mode(self, enable: int):
-        """Reports digital mode (PWM) enable status
+        """Reports digital mode (PWM) enable status.
 
-        Parameter : <enable> (int): 1 = Allows digital modulation of the laser current, 0 = Do not allow digital modulation of the laser
+        Parameter : <enable> (int): 1 = Allows digital modulation of the laser current,
+        0 = Do not allow digital modulation of the laser
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Laser:Mode:Digital " + str(enable))
         return err_code, err_message
 
     def get_digital_mode_state(self, default: int = 0):
-        """Reports the external VBIAS enable state
+        """Reports the external VBIAS enable state.
 
-        Parameter : <default> (int) : None or 0 to report current laser mode digital (PWM) enable status, 1 to report laser mode digital (PWM) factory default setting
+        Parameter : <default> (int) : None or 0 to report current laser mode digital (PWM) enable status,
+        1 to report laser mode digital (PWM) factory default setting
 
         Returns: <state> : external VBIAS enable state
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         state, err_code, err_message = self.write_read(
             "Laser:Mode:Digital? " + str(default)
         )
         return state, err_code, err_message
 
     def set_pwm_digital_mode(self, duty_cycle: float):
-        """Sets PWM percent (0 – 100) for digital mode
+        """Sets PWM percent (0 – 100) for digital mode.
 
         Parameter : <duty cycle> (float): PWM duty cycle in percent from 10.0% to 100%
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Laser:Mode:PWM " + str(duty_cycle))
         return err_code, err_message
 
     def get_pwm_digital_mode(self, default: int = 0):
-        """Reports the PWM duty cycle of laser current
+        """Reports the PWM duty cycle of laser current.
 
-        Parameter : <default> (int) : None or 0 to report current laser PWM setting, 1 to report factory default PWM setting
+        Parameter : <default> (int) : None or 0 to report current laser PWM setting,
+        1 to report factory default PWM setting
 
         Returns: <pmw> : PWM duty cycle of laser current
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         pwm, err_code, err_message = self.write_read("Laser:Mode:PWM? " + str(default))
         return pwm, err_code, err_message
 
     def get_laser_monitor(self):
-        """Reports the monitor photodiode (PD) signal level
+        """Reports the monitor photodiode (PD) signal level.
 
         Returns: <signal> : monitor photodiode (PD) signal level
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         signal, err_code, err_message = self.write_read("Laser:Monitor?")
         return signal, err_code, err_message
 
     def get_laser_power(self):
-        """Reports the Laser Power in mW as derived from the calibration Look Up Table (LUT)
+        """Reports the Laser Power in mW as derived from the calibration Look Up Table (LUT).
 
         Returns: <laser_power> : laser Power in mW as derived from the calibration Look Up Table (LUT)
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         laser_power, err_code, err_message = self.write_read("Laser:Power?")
         self.laser_power = float(laser_power)
         return self.laser_power, err_code, err_message
 
     def get_laser_temperature(self):
-        """Reports the Laser/TEC Temperature in °C
+        """Reports the Laser/TEC Temperature in °C.
 
         Returns: <laser_temp> : Laser/TEC Temperature in °C
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         laser_temp, err_code, err_message = self.write_read("Laser:Temperature?")
         self.laser_temp = float(laser_temp)
         return self.laser_temp, err_code, err_message
 
     def parameters_restore(self):
         """Restores the default power-up configuration to the IPS factory default.
-        To save the default parameters, you must add a Parameters:Save command following the Parameters: Restore command
+        To save the default parameters, you must add a "Parameters:Save command"
+        following the "Parameters:Restore" command.
 
-        The parameters restored are: TEC_Setpoint, Laser_Drive, Laser Enable Mode, Analog Mode Enable, Digital Mode Enable, and PWM Duty Cycle
+        The parameters restored are: TEC_Setpoint, Laser_Drive, Laser Enable Mode,
+        Analog Mode Enable, Digital Mode Enable, and PWM Duty Cycle.
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Parameters:Restore")
         return err_code, err_message
 
     def parameters_save(self):
         """Saves current parameter settings to FLASH for use as default power-up configuration
-        (Note: At present, there is no IPS factory “as shipped” setting, so it is recommended that users document
-        parameters before changing them so that they can be returned to the IPS default set state if desired.)
+        (Note: At present, there is no IPS factory “as shipped” setting,
+        so it is recommended that users document parameters before changing them
+        so that they can be returned to the IPS default set state if desired).
 
-        The parameters stored to FLASH are: TEC_Setpoint, Laser_Drive, Laser Enable Mode, Analog Mode Enable, Digital Mode Enable and PWM Duty Cycle
+        The parameters stored to FLASH are: TEC_Setpoint, Laser_Drive, Laser Enable Mode,
+        Analog Mode Enable, Digital Mode Enable and PWM Duty Cycle.
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("Parameters:Save")
         return err_code, err_message
 
-    def status(self):
-        """Requests the status of the digital U-type
+    def get_status(self):
+        """Requests the status of the digital U-type.
 
         Response : 2 decimal numbers; the first number represents the board state:
         0 = unknown state
@@ -389,7 +419,8 @@ class IpsLaser:
         3 = board in normal state
         4 = board in fault state
         5 = board in boot load state 6 = board not attached
-        The second number is the number of errors in the hardware error queue. Use the “ERRor?” command to read the error code and information
+        The second number is the number of errors in the hardware error queue.
+        Use the “ERRor?” command to read the error code and information
 
         Returns: <status> : status of the digital U-type
         <err_code> : communication error code
@@ -399,150 +430,172 @@ class IpsLaser:
         return status, err_code, err_message
 
     def system_errors_count(self):
-        """Reports the number of errors in the communication error queue"""
+        """Reports the number of errors in the communication error queue."""
         count = self.serial.query("System:Error:Count?").strip()
         return count
 
     def system_errors(self):
         # TODO: multiples errors messages
-        """Requests communication errors that may have occurred
+        """Requests communication errors that may have occurred.
 
         Returns ASCII character string containing an error number and a brief description.
 
-        If more than one error has occurred, repeated error queries are required until the response is “0, No error”.
-        See below for a list of communication error numbers"""
+        If more than one error has occurred, repeated error queries are required until
+        the response is “0, No error”.
+        The list of communication error numbers is available in the IPS documentation.
+        """
         errors = self.serial.query("System:Error?").strip()
         return errors
 
     def tec_setpoint(self, temperature: float):
-        """Sets the setpoint target for the TEC temperature
+        """Sets the setpoint target for the TEC temperature.
 
         Parameters : <temperature> (float) : The set point temperature in oC degrees for the laserTEC.
-        Acceptable values range from 10.0 to 45.0. Optimal setting is between 30 oC - 35oC for most system configurations.
+        Acceptable values range from 10.0 to 45.0. Optimal setting is between 30°C - 35°C
+        for most system configurations.
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("TEC:SETpoint " + str(temperature))
         return err_code, err_message
 
     def get_tec_setpoint(self, default: int = 0):
-        """Reports the setpoint target for the TEC temperature
+        """Reports the setpoint target for the TEC temperature.
 
         Parameter : <default> (int) : None or 0: Report current laser TEC temperature setting, 1: Report factory default TEC temperature setting
 
         Returns: <setpoint> : setpoint target for the TEC temperature
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         setpoint, err_code, err_message = self.write_read(
             "TEC:SETpoint? " + str(default)
         )
         return setpoint, err_code, err_message
 
     def apc_enable(self, enable: int):
-        """Controls whether the APC is enabled or disabled
+        """Controls whether the APC is enabled or disabled.
 
         Parameter : <enable> (int): 1 = Enables the Laser, 0 = Disables the laser
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("APC:Enable " + str(enable))
         return err_code, err_message
 
     def get_apc_enable_state(self):
-        """Reports APC enable state
+        """Reports APC enable state.
 
         Returns: <state> : APC enable state
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         state, err_code, err_message = self.write_read("APC:Enable?")
         return state, err_code, err_message
 
     def apc_pwr_setpoint(self, power: float):
-        """Sets the required power for APC control
+        """Sets the required power for APC control.
 
         Parameter : <power> (float) : Power in mW from 10 – max Power(~3000 mW)
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("APC:PWRSETPoint " + str(power))
         return err_code, err_message
 
     def get_apc_pwr_setpoint(self):
-        """Reports Power set point in mW for APC control
+        """Reports Power set point in mW for APC control.
 
         Returns: <pwr> : Power set point in mW
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         pwr, err_code, err_message = self.write_read("APC:PWRSETPoint?")
         return pwr, err_code, err_message
 
     def set_apc_delay(self, delay: float):
-        """Sets the APC Delay time
+        """Sets the APC Delay time.
 
-        Parameter : <delay> (float) : time in ms . Delay in between each control loop of APC algorithm. Range – 100 to 5000 ms
+        Parameter : <delay> (float) : time in ms. Delay in between each control loop of
+        APC algorithm. Range – 100 to 5000 ms.
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("APC:DELAY " + str(delay))
         return err_code, err_message
 
     def get_apc_delay(self):
-        """Reports the APC set delay time. Output will be in ms
+        """Reports the APC set delay time. Output will be in ms.
 
         Returns: <delay> : APC set delay time in ms
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         delay, err_code, err_message = self.write_read("APC:DELAY?")
         return delay, err_code, err_message
 
     def set_apc_spec(self, percent: float):
-        """Sets the APC control Percentage
+        """Sets the APC control Percentage.
 
         Parameter : <percent> (float) : Control % ranging from 0.1 to 1 %
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         err_code, err_message = self.write("APC:SPEC " + str(percent))
         return err_code, err_message
 
     def get_apc_spec(self):
-        """Reports the APC control Percentage
+        """Reports the APC control Percentage.
 
         Returns: <percent> : APC control Percentage
         <err_code> : communication error code
-        <err_message> : communication error message"""
+        <err_message> : communication error message
+        """
         percent, err_code, err_message = self.write_read("APC:SPEC?")
         return percent, err_code, err_message
 
     def pulse(self, duration: float):
-        "Creates a laser pulse by turning ON and OFF the"
+        """Creates a laser pulse by turning ON and OFF the laser.
+
+        Parameter : <duration> (float) : duration of the pulse in mS
+        """
         if self.get_enable_state()[0] == 0:
-            print(self.get_enable_state()[0])
             self.enable(1)
-            print(self.get_enable_state()[0])
             time.sleep(duration / 1000)
             self.enable(0)
-            print(self.get_enable_state()[0])
             operation = "Success"
         else:
             operation = "Already ON"
         return operation
 
     def get_info(self) -> dict:
+        """Returns informations about the laser as a dictionnary.
+        The informations are it's status, the COM port, the laser current , power and temperature.
+
+        Returns: <dict> : Dictionnary containing the infos.
+        """
         info_dict = {}
-        info_dict["status"] = self.status
         if self.isconnected:
+            self.get_enable_state()  # update self.status
+            info_dict["status"] = self.status
             info_dict["comport"] = self.comport
             info_dict["current"] = str(self.get_laser_current()[0])
             info_dict["power"] = str(self.get_laser_power()[0])
             info_dict["temperature"] = str(round(self.get_laser_temperature()[0], 1))
             info_dict["error"] = self.error()
+
         else:
+            info_dict["status"] = self.status
             info_dict["comport"] = "None"
             info_dict["current"] = "None"
             info_dict["power"] = "None"
@@ -551,8 +604,17 @@ class IpsLaser:
 
         return info_dict
 
-    def write(self, x):
-        self.serial.write(x)
+    def write(self, message):
+        """Sends a serial message to the laser and verifies if any communication error occured.
+
+        Parameter : <message> (string) : Message send to the laser by serial.
+        The command syntax for those messages is explained in the documentation provided by IPS.  %
+
+        Returns:
+        <err_code> : communication error code
+        <err_message> : communication error message
+        """
+        self.serial.write(message)
         err_code, err_message = self.serial.query("System:Error?").strip().split(",")
         # TODO:
         """while self.serial.query("System:Error:Count?") != "0":
@@ -562,28 +624,40 @@ class IpsLaser:
         return int(err_code), err_message
 
     def write_read(self, x):
+        """Sends a serial message to the laser, reads the answer and
+        verifies if any communication error occured.
+
+        Parameter : <message> (string) : Message send to the laser by serial.
+        The command syntax for those messages is explained in the documentation provided by IPS.  %
+
+        Returns:
+        <value> (string) : Answer provided by the laser to the serial COM.
+        <err_code> : communication error code
+        <err_message> : communication error message
+        """
         value = self.serial.query(x).strip()
         err_code, err_message = self.serial.query("System:Error?").strip().split(",")
         return value, int(err_code), err_message
 
-    # TODO: def __repr__(self):
+    def __repr__(self) -> str:
+        return f"IPSLaser(idn = '{self.idn}', comport = '{self.comport}', connected = {self.isconnected})"
 
 
 if __name__ == "__main__":
     ips = IpsLaser()
     ips.comport = list(list_lasers().keys())[0]
-    print(ips.status)
+    print(LASER_STATE[ips.status])
     ips.connect()
-    print(ips.status)
+    print(LASER_STATE[ips.status])
     print(ips.identification())
     command = input("Command :")
     while command != "exit":
         if command == "enable":
             print(ips.enable(1))
-            print(ips.status)
+            print(LASER_STATE[ips.status])
         elif command == "disable":
             print(ips.enable(0))
-            print(ips.status)
+            print(LASER_STATE[ips.status])
         elif command == "state":
             print(ips.get_enable_state())
         elif command == "current":
@@ -596,6 +670,9 @@ if __name__ == "__main__":
             print(ips.pulse(dur))
         elif command == "error":
             print(ips.error())
+        elif command == "repr":
+            print(repr(ips))
         command = input("Enter command :")
+
     ips.disconnect()
-    print(ips.status)
+    print(LASER_STATE[ips.status])
