@@ -8,7 +8,7 @@ import sys
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from laser_control import IpsLaser, list_lasers
+from laser_control import IpsLaser
 from Ui.laser_ui import Ui_LaserControl
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
@@ -30,10 +30,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.logger.info("Widget intialization")
 
         self.laser = IpsLaser()
+        self.available_lasers = {}
+
         # ui parameters
         self.setup_signals_slots()
         self.setup_update_timer()
-        self.update_laser_choice()
         self.logger.info("Widget launch is done")
 
     def create_logger(self):
@@ -83,19 +84,20 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         """Add the devices ports and names to the comboBox that allows laser connection."""
         self.logger.info("Updating the connected devices")
         if self.laser.isconnected is False:
-            dic_laser = list_lasers()
-            self.list_ports = list(dic_laser.keys())
+            self.available_lasers = self.laser.find_ips_laser()
             self.comboBox_devices.clear()
-            for port in self.list_ports:
-                self.comboBox_devices.addItem(dic_laser[port])
-                self.logger.info("Added device : %s to the comboBox", dic_laser[port])
+            for port, infos in self.available_lasers.items():
+                self.comboBox_devices.addItem(f"{port} | {infos['idn']}")
+                self.logger.info(
+                    "Added device : %s to the comboBox", f"{port} | {infos['idn']}"
+                )
 
     def connect_laser(self):
         """Connects the laser selected in the comboBox."""
         if self.laser.isconnected is False:
             self.logger.info("Trying to connect to a device")
             try:
-                self.laser.comport = self.list_ports[
+                self.laser.comport = list(self.available_lasers)[
                     self.comboBox_devices.currentIndex()
                 ]
                 connected = self.laser.connect()
@@ -105,12 +107,14 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                     self.update_timer.start()
                     self.logger.info(
                         "Connection to %s succesfull",
-                        self.list_ports[self.comboBox_devices.currentIndex()],
+                        list(self.available_lasers)[
+                            self.comboBox_devices.currentIndex()
+                        ],
                     )
                 else:
                     self.logger.warning(
                         "Connection to %s failed. Error messsage : %s",
-                        self.list_ports[self.comboBox_devices.currentIndex()],
+                        self.available_lasers[self.comboBox_devices.currentIndex()],
                         connected,
                     )
             # catch error if combobox is empty

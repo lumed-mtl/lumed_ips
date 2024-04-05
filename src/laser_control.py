@@ -1,38 +1,11 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
 
 import time
+from typing import Dict
 
 import pyvisa
 
-SUPPORTED_DEVICES = ["IPS"]
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
-
-
-def list_lasers() -> dict:
-    """Returns the supported devices (lasers) connected to the comports.
-
-    Returns:
-        dict: python dict of connected devices (lasers) with the ports as keys
-        and their names as values.
-    """
-    dic_lasers = {}
-    rm = pyvisa.ResourceManager("@py")
-    ressource_names = rm.list_resources()
-    print(ressource_names)
-    for name in ressource_names:
-        try:
-            device = rm.open_resource(name)
-            device.timeout = 50
-            idn = device.query("*IDN?")
-        except Exception as e:
-            print(e)
-            continue
-
-        for device in SUPPORTED_DEVICES:
-            if device in idn:
-                dic_lasers[name] = idn.strip()
-
-    return dic_lasers
 
 
 class IpsLaser:
@@ -47,6 +20,36 @@ class IpsLaser:
         self.laser_current = None
         self.laser_temp = None
         self.laser_power = None
+
+        self.ressource_manage = pyvisa.ResourceManager("@py")
+
+    def find_acm_devices(self) -> Dict[str, pyvisa.highlevel.ResourceInfo]:
+        """
+        find_acm_devices find_ACM_devices finds and returns a tuple of ACM ressources that can be detected by
+        pyvisa's ressource manage.
+
+        IPS lasers appear as `ASRL/dev/ttyACMX::INSTR`
+
+        Returns
+        -------
+        dict
+            Mapping of resource name to ResourceInfo from pyvisa.
+        """
+        acm_resources = self.ressource_manage.list_resources_info(query="?*ACM?*")
+        return acm_resources
+
+    def find_ips_laser(self) -> dict:
+        acm_resources = self.find_acm_devices()
+        connected_lasers = {}
+
+        for k, v in acm_resources.items():
+            device = self.ressource_manage.open_resource(k)
+            device.timeout = 50
+            idn = device.query("*IDN?")
+            if "IPS" in idn:
+                connected_lasers[k] = {"ressourceInfo": v, "idn": idn.strip()}
+
+        return connected_lasers
 
     def connect(self):
         """Open the serial connection to the laser."""
@@ -645,35 +648,47 @@ class IpsLaser:
 
 
 if __name__ == "__main__":
-    ips = IpsLaser()
-    ips.comport = list(list_lasers().keys())[0]
-    print(LASER_STATE[ips.status])
-    ips.connect()
-    print(LASER_STATE[ips.status])
-    print(ips.identification())
-    command = input("Command :")
-    while command != "exit":
-        if command == "enable":
-            print(ips.enable(1))
-            print(LASER_STATE[ips.status])
-        elif command == "disable":
-            print(ips.enable(0))
-            print(LASER_STATE[ips.status])
-        elif command == "state":
-            print(ips.get_enable_state())
-        elif command == "current":
-            curr = float(input("value(mA) :"))
-            print(ips.set_laser_current(curr))
-        elif command == "current?":
-            print(ips.get_laser_current())
-        elif command == "pulse":
-            dur = int(input("duration(ms) :"))
-            print(ips.pulse(dur))
-        elif command == "error":
-            print(ips.error())
-        elif command == "repr":
-            print(repr(ips))
-        command = input("Enter command :")
 
-    ips.disconnect()
-    print(LASER_STATE[ips.status])
+    laser = IpsLaser()
+    available_lasers = laser.find_ips_laser()
+
+    print(list(available_lasers)[0])
+
+    # ips = IpsLaser()
+    # print(list_lasers())
+    # ips.comport = list(list_lasers().keys())[0]
+
+    # print(LASER_STATE[ips.status])
+
+#     ips.connect()
+#     print(LASER_STATE[ips.status])
+#
+#     print(ips.identification())
+#     command = input("Command :")
+#
+#     while command != "exit":
+#         if command == "enable":
+#             print(ips.enable(1))
+#             print(LASER_STATE[ips.status])
+#         elif command == "disable":
+#             print(ips.enable(0))
+#             print(LASER_STATE[ips.status])
+#         elif command == "state":
+#             print(ips.get_enable_state())
+#         elif command == "current":
+#             curr = float(input("value(mA) :"))
+#             print(ips.set_laser_current(curr))
+#         elif command == "current?":
+#             print(ips.get_laser_current())
+#         elif command == "pulse":
+#             dur = int(input("duration(ms) :"))
+#             print(ips.pulse(dur))
+#         elif command == "error":
+#             print(ips.error())
+#         elif command == "repr":
+#             print(repr(ips))
+#         command = input("Enter command :")
+#
+#     ips.disconnect()
+#
+#     print(LASER_STATE[ips.status])
