@@ -8,8 +8,8 @@ import sys
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from laser_control import IpsLaser
-from Ui.laser_ui import Ui_LaserControl
+from ipscontrol.laser_control import IpsLaser
+from ipscontrol.Ui.laser_ui import Ui_LaserControl
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
