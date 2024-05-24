@@ -657,7 +657,10 @@ class IpsLaser:
         return value, int(err_code), err_message
 
     def __repr__(self) -> str:
-        return f"IPSLaser(idn = '{self.idn}', comport = '{self.comport}', connected = {self.isconnected})"
+        reprstr = f"IPSLaser(idn = '{self.idn}', \
+            comport = '{self.comport}', connected = {self.isconnected})"
+
+        return reprstr
 
 
 if __name__ == "__main__":
