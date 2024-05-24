@@ -25,8 +25,8 @@ class IpsLaser:
 
     def find_acm_devices(self) -> Dict[str, pyvisa.highlevel.ResourceInfo]:
         """
-        find_acm_devices find_ACM_devices finds and returns a tuple of ACM ressources that can be detected by
-        pyvisa's ressource manage.
+        find_acm_devices find_ACM_devices finds and returns a tuple of ACM ressources that can be
+        detected by pyvisa's ressource manage.
 
         IPS lasers appear as `ASRL/dev/ttyACMX::INSTR`
 
@@ -39,6 +39,15 @@ class IpsLaser:
         return acm_resources
 
     def find_ips_laser(self) -> dict:
+        """
+        find_ips_laser finds ips lasers available for connection through the pyvisa ressource
+        manager
+
+        Returns
+        -------
+        dict
+            Available laser ressources connected
+        """
         acm_resources = self.find_acm_devices()
         connected_lasers = {}
 
@@ -313,8 +322,8 @@ class IpsLaser:
     def get_digital_mode_state(self, default: int = 0):
         """Reports the external VBIAS enable state.
 
-        Parameter : <default> (int) : None or 0 to report current laser mode digital (PWM) enable status,
-        1 to report laser mode digital (PWM) factory default setting
+        Parameter : <default> (int) : None or 0 to report current laser mode digital (PWM) enable
+        status, 1 to report laser mode digital (PWM) factory default setting
 
         Returns: <state> : external VBIAS enable state
         <err_code> : communication error code
@@ -363,7 +372,8 @@ class IpsLaser:
     def get_laser_power(self):
         """Reports the Laser Power in mW as derived from the calibration Look Up Table (LUT).
 
-        Returns: <laser_power> : laser Power in mW as derived from the calibration Look Up Table (LUT)
+        Returns: <laser_power> : laser Power in mW as derived from the calibration Look Up Table
+        (LUT)
         <err_code> : communication error code
         <err_message> : communication error message
         """
@@ -454,7 +464,9 @@ class IpsLaser:
     def tec_setpoint(self, temperature: float):
         """Sets the setpoint target for the TEC temperature.
 
-        Parameters : <temperature> (float) : The set point temperature in oC degrees for the laserTEC.
+        Parameters : <temperature> (float) : The set point temperature in oC degrees for the
+        laserTEC.
+
         Acceptable values range from 10.0 to 45.0. Optimal setting is between 30°C - 35°C
         for most system configurations.
 
@@ -468,7 +480,8 @@ class IpsLaser:
     def get_tec_setpoint(self, default: int = 0):
         """Reports the setpoint target for the TEC temperature.
 
-        Parameter : <default> (int) : None or 0: Report current laser TEC temperature setting, 1: Report factory default TEC temperature setting
+        Parameter : <default> (int) : None or 0: Report current laser TEC temperature setting,
+        1: Report factory default TEC temperature setting
 
         Returns: <setpoint> : setpoint target for the TEC temperature
         <err_code> : communication error code
