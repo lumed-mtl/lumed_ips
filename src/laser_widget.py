@@ -139,28 +139,34 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
     def update_current(self):
         """Updates the laser current with the value in the spinBox."""
-        if self.laser.isconnected:
-            self.laser.set_laser_current(self.spinBox_current.value())
-            self.logger.info("Laser current set to %d", self.spinBox_current.value())
+        if not self.laser.isconnected:
+            self.logger.error("Laser not connected")
+            return
+
+        self.laser.set_laser_current(self.spinBox_current.value())
+        self.logger.info("Laser current set to %d", self.spinBox_current.value())
 
     def enable(self):
         """Enables the lasing with the laser current selected in the laser current spinBox."""
-        if self.laser.isconnected:
-            self.laser.set_laser_current(self.spinBox_current.value())
-            self.laser.enable(1)
-            self.logger.info(
-                "Lasing enabled, laser enable state: %d",
-                self.laser.get_enable_state(),
-            )
+        if not self.laser.isconnected:
+            self.logger.error("Laser not connected")
+            return
+
+        self.laser.set_laser_current(self.spinBox_current.value())
+        self.laser.enable(1)
+        state, _, _ = self.laser.get_enable_state()
+        self.logger.info("Lasing enabled, laser enable state: %d", state)
 
     def disable(self):
         """Disables the lasing."""
-        if self.laser.isconnected:
-            self.laser.enable(0)
-            self.logger.info(
-                "Lasing disabled, laser enable state: %d",
-                self.laser.get_enable_state(),
-            )
+        if not self.laser.isconnected:
+            self.logger.error("Laser not connected")
+            return
+
+        self.laser.set_laser_current(self.spinBox_current.value())
+        self.laser.enable(0)
+        state, _, _ = self.laser.get_enable_state()
+        self.logger.info("Lasing disabled, laser enable state: %d", state)
 
     def pulse(self):
         """Generates a pulse with the value (in ms) in the pulse duration spinBox."""
@@ -182,7 +188,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.label_current_status.setText(info_dict["current"])
         self.label_power_status.setText(info_dict["power"])
         self.label_temp_status.setText(info_dict["temperature"])
-        print(info_dict["error"])  # TODO: add error in the logging
+        self.logger.error(info_dict["error"])
         # buttons
         self.buttons_enabling(info_dict["status"])
 
