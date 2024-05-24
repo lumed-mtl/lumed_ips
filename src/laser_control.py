@@ -6,6 +6,43 @@ from typing import Dict
 import pyvisa
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
+ERROR_CODES = {
+    0: "NO_ERROR",  # Hardware error
+    3011: "HOUSEKEEPING",  # Hardware error
+    3012: "FLASH_INITIALIZATION_FAILED",  # Hardware error
+    3013: "FLASH_HOUSEKEEPING_FAILED",  # Hardware error
+    3014: "LOW_VOLTAGE_EVENT",  # Hardware error
+    3015: "BAD_VOLTAGE_3V3",  # Hardware error
+    3016: "BAD_VOLTAGE_VIN",  # Hardware error
+    3017: "BAD_VOLTAGE_VTEC",  # Hardware error
+    3018: "HIGH_INPUT_CURRENT",  # Hardware error
+    3019: "TEC_UPDT_ON_BRD_STATE_BAD",  # Hardware error
+    3020: "TEC_UPDT_ON_TEMP_LONG_BAD",  # Hardware error
+    3021: "TEC_UPDT_ON_TEMP_OUT_SETPT",  # Hardware error
+    3022: "TEC_UPDT_ON_TEMP_OUT_RANGE",  # Hardware error
+    3097: "FAILED_INITIAL_POST",  # Hardware error
+    3098: "FLASH_PARAMS_REINITIALIZED",  # Hardware error
+    3099: "UNIDENTIFIED_ERROR",  # Hardware error
+    -102: "Syntax error",  # Communication error
+    -103: "Invalid separator",  # Communication error
+    -108: "Parameter not allowed",  # Communication error
+    -109: "Missing parameter",  # Communication error
+    -113: "Undefined header",  # Communication error
+    -131: "Invalid suffix",  # Communication error
+    -138: "Suffix not allowed",  # Communication error
+    -200: "Execution error",  # Communication error
+    -224: "Illegal parameter value",  # Communication error
+}
+
+STATUS = {
+    0: "unknown state",
+    1: "board passed POST",
+    2: "board failed POST",
+    3: "board in normal state",
+    4: "board in fault state",
+    5: "board in boot load state",
+    6: "board not attached",
+}
 
 
 class IpsLaser:
