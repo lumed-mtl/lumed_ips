@@ -665,46 +665,53 @@ class IpsLaser:
 
 if __name__ == "__main__":
 
-    laser = IpsLaser()
-    available_lasers = laser.find_ips_laser()
+    ips = IpsLaser()
 
-    print(list(available_lasers)[0])
+    print("... Looking for connected lasers ...\n")
+    connected_lasers = ips.find_ips_laser()
 
-    # ips = IpsLaser()
-    # print(list_lasers())
-    # ips.comport = list(list_lasers().keys())[0]
+    print("Connected lasers:")
+    if connected_lasers:
+        for i, laser in enumerate(connected_lasers):
+            print(f"\t{i}) ", laser)
+        selected_laser = int(
+            input(
+                "\nSelect a laser (default : 0) :",
+            )
+            or 0
+        )
+        ips.comport = list(ips.find_ips_laser())[selected_laser]
+    else:
+        print("\tNo laser found")
+        exit()
 
-    # print(LASER_STATE[ips.status])
+    print(f"Connecting to laser {ips.comport}")
+    ips.connect()
 
-#     ips.connect()
-#     print(LASER_STATE[ips.status])
-#
-#     print(ips.identification())
-#     command = input("Command :")
-#
-#     while command != "exit":
-#         if command == "enable":
-#             print(ips.enable(1))
-#             print(LASER_STATE[ips.status])
-#         elif command == "disable":
-#             print(ips.enable(0))
-#             print(LASER_STATE[ips.status])
-#         elif command == "state":
-#             print(ips.get_enable_state())
-#         elif command == "current":
-#             curr = float(input("value(mA) :"))
-#             print(ips.set_laser_current(curr))
-#         elif command == "current?":
-#             print(ips.get_laser_current())
-#         elif command == "pulse":
-#             dur = int(input("duration(ms) :"))
-#             print(ips.pulse(dur))
-#         elif command == "error":
-#             print(ips.error())
-#         elif command == "repr":
-#             print(repr(ips))
-#         command = input("Enter command :")
-#
-#     ips.disconnect()
-#
-#     print(LASER_STATE[ips.status])
+    print(ips.identification())
+    command = input("Command :")
+
+    while command != "exit":
+        if command == "enable":
+            print(ips.enable(1))
+            print(LASER_STATE[ips.status])
+        elif command == "disable":
+            print(ips.enable(0))
+            print(LASER_STATE[ips.status])
+        elif command == "state":
+            print(ips.get_enable_state())
+        elif command == "current":
+            curr = float(input("value(mA) :"))
+            print(ips.set_laser_current(curr))
+        elif command == "current?":
+            print(ips.get_laser_current())
+        elif command == "pulse":
+            dur = int(input("duration(ms) :"))
+            print(ips.pulse(dur))
+        elif command == "error":
+            print(ips.error())
+        elif command == "repr":
+            print(repr(ips))
+        command = input("Enter command :")
+
+    ips.disconnect()
