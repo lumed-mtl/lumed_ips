@@ -15,7 +15,7 @@ LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
     0: "QLabel { color : blue; }",
     1: "QLabel { color : red; }",
-    2: "QLabel { color : black; }",
+    2: "QLabel { color : grey; }",
 }
 
 
@@ -26,9 +26,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        # change pushbutton
         style = self.pushButton_update.style()
         icon = style.standardIcon(style.SP_BrowserReload)
         self.pushButton_update.setIcon(icon)
+        # logger
         self.create_logger()
         self.logger.info("Widget intialization")
 
@@ -186,10 +188,10 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         # laser info
         info_dict = self.laser.get_info()
         self.label_status.setText(LASER_STATE[info_dict["status"]])
-        self.label_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
-        self.label_current_status.setText(info_dict["current"])
-        self.label_power_status.setText(info_dict["power"])
-        self.label_temp_status.setText(info_dict["temperature"])
+        self.label_led_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
+        self.plainTextEdit_current_status.setPlainText(info_dict["current"])
+        self.plainTextEdit_power_status.setPlainText(info_dict["power"])
+        self.plainTextEdit_temp_status.setPlainText(info_dict["temperature"])
         # buttons
         self.buttons_enabling(info_dict["status"])
 
@@ -231,13 +233,13 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
 
 if __name__ == "__main__":
-    
+
     # Set up logging
     logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
-)
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
+    )
     # Create app window
     app = QApplication(sys.argv)
     window = QMainWindow()
