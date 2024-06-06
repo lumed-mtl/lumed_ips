@@ -26,6 +26,9 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        style = self.pushButton_update.style()
+        icon = style.standardIcon(style.SP_BrowserReload)
+        self.pushButton_update.setIcon(icon)
         self.create_logger()
         self.logger.info("Widget intialization")
 
@@ -144,10 +147,9 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             return
 
         self.laser.set_laser_current(self.spinBox_current.value())
-        self.logger.info("Laser current set to %d", self.spinBox_current.value())
 
     def enable(self):
-        """Enables the lasing with the laser current selected in the laser current spinBox."""
+        """Enables the laser with the laser current selected in the laser current spinBox."""
         if not self.laser.isconnected:
             self.logger.error("Laser not connected")
             return
@@ -155,10 +157,10 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.laser.set_laser_current(self.spinBox_current.value())
         self.laser.enable(1)
         state, _, _ = self.laser.get_enable_state()
-        self.logger.info("Lasing enabled, laser enable state: %d", state)
+        self.logger.info("Laser enabled, laser enable state: %d", state)
 
     def disable(self):
-        """Disables the lasing."""
+        """Disables the laser."""
         if not self.laser.isconnected:
             self.logger.error("Laser not connected")
             return
@@ -166,7 +168,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.laser.set_laser_current(self.spinBox_current.value())
         self.laser.enable(0)
         state, _, _ = self.laser.get_enable_state()
-        self.logger.info("Lasing disabled, laser enable state: %d", state)
+        self.logger.info("Laser disabled, laser enable state: %d", state)
 
     def pulse(self):
         """Generates a pulse with the value (in ms) in the pulse duration spinBox."""
@@ -188,7 +190,6 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.label_current_status.setText(info_dict["current"])
         self.label_power_status.setText(info_dict["power"])
         self.label_temp_status.setText(info_dict["temperature"])
-        self.logger.error(info_dict["error"])
         # buttons
         self.buttons_enabling(info_dict["status"])
 
@@ -199,23 +200,18 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         """
         if state == 2:
             self.enable_new_connections(True)
-            self.enable_lasing_buttons(False)
-            self.logger.info(
-                "Modifying buttons display for laser state : Not connected"
-            )
+            self.enable_laser_buttons(False)
         elif state == 1:
             self.enable_new_connections(False)
-            self.enable_lasing_buttons(True)
+            self.enable_laser_buttons(True)
             self.pushButton_on.setEnabled(False)
             self.pushButton_pulse.setEnabled(False)
-            self.logger.info("Modifying buttons display for laser state : ON")
         elif state == 0:
             self.enable_new_connections(False)
-            self.enable_lasing_buttons(True)
-            self.logger.info("Modifying buttons display for laser state : Idle")
+            self.enable_laser_buttons(True)
 
-    def enable_lasing_buttons(self, enable: bool):
-        """Enables or disable the buttons of the UI related to the lasing.
+    def enable_laser_buttons(self, enable: bool):
+        """Updates UI to reflet laser state.
 
         Parameters : <enable> (bool) : True to enable, False to disable.
         """
@@ -235,6 +231,14 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
 
 if __name__ == "__main__":
+    
+    # Set up logging
+    logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
+)
+    # Create app window
     app = QApplication(sys.argv)
     window = QMainWindow()
     window.show()
