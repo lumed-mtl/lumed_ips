@@ -107,6 +107,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 ]
                 connected = self.laser.connect()
                 if connected == "Success":
+                    self.update_laser_details(True)
                     self.spinBox_current.setProperty("value", 1)  # set current to 1
                     self.update_ui()
                     self.update_timer.start()
@@ -133,6 +134,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.logger.info("Trying to disconnect from a device")
         disconnected = self.laser.disconnect()
         if disconnected == "Success":
+            self.update_laser_details(False)
             self.update_timer.stop()
             self.update_ui()
             self.logger.info("Disconnection succesfull")
@@ -181,6 +183,19 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             pulse_timer.singleShot(duration, self.disable)
             self.enable()
             pulse_timer.start()
+
+    def update_laser_details(self, connection: bool):
+        """Updated laser details in the UI on connection and disconnection: 
+        model, serial number and wavelength."""
+        if connection:
+            brand, model, serialno, wvlgth, fw_revision = self.laser.idn.split(',')
+            self.plainTextEdit_model.setPlainText(brand+', '+model)
+            self.plainTextEdit_serialno.setPlainText(serialno)
+            self.plainTextEdit_wavelength.setPlainText(wvlgth)
+        else:
+            self.plainTextEdit_model.setPlainText('None')
+            self.plainTextEdit_serialno.setPlainText('None')
+            self.plainTextEdit_wavelength.setPlainText('None')
 
     def update_ui(self):
         """Gets the laser current inforamtions and state and
