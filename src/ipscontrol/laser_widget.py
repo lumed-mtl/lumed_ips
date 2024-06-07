@@ -13,9 +13,9 @@ from ipscontrol.Ui.laser_ui import Ui_LaserControl
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
-    0: "QLabel { color : blue; }",
-    1: "QLabel { color : red; }",
-    2: "QLabel { color : black; }",
+    0: "QLabel { background-color : blue; }",
+    1: "QLabel { background-color : red; }",
+    2: "QLabel { background-color : grey; }",
 }
 
 
@@ -26,9 +26,11 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        # change pushbutton
         style = self.pushButton_update.style()
         icon = style.standardIcon(style.SP_BrowserReload)
         self.pushButton_update.setIcon(icon)
+        # logger
         self.create_logger()
         self.logger.info("Widget intialization")
 
@@ -106,6 +108,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 connected = self.laser.connect()
                 if connected == "Success":
                     self.spinBox_current.setProperty("value", 1)  # set current to 1
+                    self.update_laser_details(True)
                     self.update_ui()
                     self.update_timer.start()
                     self.logger.info(
@@ -131,6 +134,7 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
         self.logger.info("Trying to disconnect from a device")
         disconnected = self.laser.disconnect()
         if disconnected == "Success":
+            self.update_laser_details(False)
             self.update_timer.stop()
             self.update_ui()
             self.logger.info("Disconnection succesfull")
@@ -180,16 +184,29 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             self.enable()
             pulse_timer.start()
 
+    def update_laser_details(self, connection: bool):
+        """Updated laser details in the UI on connection and disconnection: 
+        model, serial number and wavelength."""
+        if connection:
+            brand, model, serialno, wvlgth, fw_revision = self.laser.idn.split(',')
+            self.plainTextEdit_model.setPlainText(brand+', '+model)
+            self.plainTextEdit_serialno.setPlainText(serialno)
+            self.plainTextEdit_wavelength.setPlainText(wvlgth)
+        else:
+            self.plainTextEdit_model.setPlainText('None')
+            self.plainTextEdit_serialno.setPlainText('None')
+            self.plainTextEdit_wavelength.setPlainText('None')
+
     def update_ui(self):
         """Gets the laser current inforamtions and state and
         updates the laser UI according to them."""
         # laser info
         info_dict = self.laser.get_info()
         self.label_status.setText(LASER_STATE[info_dict["status"]])
-        self.label_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
-        self.label_current_status.setText(info_dict["current"])
-        self.label_power_status.setText(info_dict["power"])
-        self.label_temp_status.setText(info_dict["temperature"])
+        self.label_led_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
+        self.plainTextEdit_current_status.setPlainText(info_dict["current"])
+        self.plainTextEdit_power_status.setPlainText(info_dict["power"])
+        self.plainTextEdit_temp_status.setPlainText(info_dict["temperature"])
         # buttons
         self.buttons_enabling(info_dict["status"])
 
@@ -231,13 +248,13 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
 
 
 if __name__ == "__main__":
-    
+
     # Set up logging
     logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
-)
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
+    )
     # Create app window
     app = QApplication(sys.argv)
     window = QMainWindow()
