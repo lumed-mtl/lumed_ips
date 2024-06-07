@@ -107,8 +107,8 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
                 ]
                 connected = self.laser.connect()
                 if connected == "Success":
-                    self.update_laser_details(True)
                     self.spinBox_current.setProperty("value", 1)  # set current to 1
+                    self.update_laser_details(True)
                     self.update_ui()
                     self.update_timer.start()
                     self.logger.info(

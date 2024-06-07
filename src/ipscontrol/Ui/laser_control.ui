@@ -33,13 +33,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>450</width>
-       <height>400</height>
+       <width>480</width>
+       <height>450</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>450</width>
+       <width>480</width>
        <height>450</height>
       </size>
      </property>
@@ -427,8 +427,8 @@
                <property name="font">
                 <font>
                  <pointsize>13</pointsize>
-                 <weight>50</weight>
-                 <bold>false</bold>
+                 <weight>75</weight>
+                 <bold>true</bold>
                 </font>
                </property>
                <property name="text">
@@ -491,7 +491,7 @@
               <widget class="QLabel" name="label_status">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>120</width>
                  <height>0</height>
                 </size>
                </property>
@@ -577,12 +577,76 @@
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_7">
              <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_5">
+               <property name="spacing">
+                <number>6</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="label_model">
+                 <property name="font">
+                  <font>
+                   <pointsize>11</pointsize>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                   <kerning>false</kerning>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Model: </string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPlainTextEdit" name="plainTextEdit_model">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>85</width>
+                   <height>25</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>85</width>
+                   <height>25</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>11</pointsize>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                   <kerning>false</kerning>
+                  </font>
+                 </property>
+                 <property name="verticalScrollBarPolicy">
+                  <enum>Qt::ScrollBarAlwaysOff</enum>
+                 </property>
+                 <property name="horizontalScrollBarPolicy">
+                  <enum>Qt::ScrollBarAlwaysOff</enum>
+                 </property>
+                 <property name="plainText">
+                  <string>None</string>
+                 </property>
+                 <property name="textInteractionFlags">
+                  <set>Qt::NoTextInteraction</set>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
               <layout class="QHBoxLayout" name="horizontalLayout_7">
                <item>
                 <widget class="QLabel" name="label_serialno">
                  <property name="font">
                   <font>
-                   <pointsize>13</pointsize>
+                   <pointsize>11</pointsize>
                    <weight>50</weight>
                    <bold>false</bold>
                    <kerning>false</kerning>
@@ -603,19 +667,19 @@
                  </property>
                  <property name="minimumSize">
                   <size>
-                   <width>0</width>
-                   <height>0</height>
+                   <width>85</width>
+                   <height>25</height>
                   </size>
                  </property>
                  <property name="maximumSize">
                   <size>
-                   <width>75</width>
+                   <width>85</width>
                    <height>25</height>
                   </size>
                  </property>
                  <property name="font">
                   <font>
-                   <pointsize>13</pointsize>
+                   <pointsize>11</pointsize>
                    <weight>50</weight>
                    <bold>false</bold>
                    <kerning>false</kerning>
@@ -641,19 +705,6 @@
                  </property>
                 </widget>
                </item>
-               <item>
-                <spacer name="horizontalSpacer_12">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
               </layout>
              </item>
              <item>
@@ -662,7 +713,7 @@
                 <widget class="QLabel" name="label_wavelenght">
                  <property name="font">
                   <font>
-                   <pointsize>13</pointsize>
+                   <pointsize>11</pointsize>
                    <weight>50</weight>
                    <bold>false</bold>
                    <kerning>false</kerning>
@@ -683,19 +734,19 @@
                  </property>
                  <property name="minimumSize">
                   <size>
-                   <width>0</width>
-                   <height>0</height>
+                   <width>85</width>
+                   <height>25</height>
                   </size>
                  </property>
                  <property name="maximumSize">
                   <size>
-                   <width>55</width>
+                   <width>85</width>
                    <height>25</height>
                   </size>
                  </property>
                  <property name="font">
                   <font>
-                   <pointsize>13</pointsize>
+                   <pointsize>11</pointsize>
                    <weight>50</weight>
                    <bold>false</bold>
                    <kerning>false</kerning>
@@ -717,97 +768,6 @@
                   <set>Qt::NoTextInteraction</set>
                  </property>
                 </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_4">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_5">
-               <property name="spacing">
-                <number>-1</number>
-               </property>
-               <item>
-                <widget class="QLabel" name="label_model">
-                 <property name="font">
-                  <font>
-                   <pointsize>13</pointsize>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                   <kerning>false</kerning>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Model: </string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPlainTextEdit" name="plainTextEdit_model">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>50</width>
-                   <height>25</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>13</pointsize>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                   <kerning>false</kerning>
-                  </font>
-                 </property>
-                 <property name="verticalScrollBarPolicy">
-                  <enum>Qt::ScrollBarAlwaysOff</enum>
-                 </property>
-                 <property name="horizontalScrollBarPolicy">
-                  <enum>Qt::ScrollBarAlwaysOff</enum>
-                 </property>
-                 <property name="plainText">
-                  <string>None
-</string>
-                 </property>
-                 <property name="textInteractionFlags">
-                  <set>Qt::NoTextInteraction</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_5">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
                </item>
               </layout>
              </item>
@@ -890,19 +850,6 @@
                  </property>
                 </widget>
                </item>
-               <item>
-                <spacer name="horizontalSpacer_10">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
               </layout>
              </item>
              <item>
@@ -964,19 +911,6 @@
                   <set>Qt::NoTextInteraction</set>
                  </property>
                 </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_11">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
                </item>
               </layout>
              </item>
@@ -1044,19 +978,6 @@
                   <set>Qt::NoTextInteraction</set>
                  </property>
                 </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_9">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
                </item>
               </layout>
              </item>
