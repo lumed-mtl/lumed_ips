@@ -13,9 +13,9 @@ from ipscontrol.Ui.laser_ui import Ui_LaserControl
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
-    0: "QLabel { color : blue; }",
-    1: "QLabel { color : red; }",
-    2: "QLabel { color : grey; }",
+    0: "QLabel { background-color : blue; }",
+    1: "QLabel { background-color : red; }",
+    2: "QLabel { background-color : grey; }",
 }
 
 
