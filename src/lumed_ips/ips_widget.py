@@ -8,8 +8,8 @@ import sys
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from ipscontrol.laser_control import IpsLaser
-from ipscontrol.Ui.laser_ui import Ui_LaserControl
+from lumed_ips.ips_control import IpsLaser
+from lumed_ips.ui.ips_ui import Ui_LaserControl
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
@@ -19,7 +19,7 @@ STATE_COLORS = {
 }
 
 
-class IpsLaserwidget(QWidget, Ui_LaserControl):
+class IpsLaserWidget(QWidget, Ui_LaserControl):
     """User Interface for IPS laser control.
     Subclass IpsLaserWidget to customize the Ui_LaserControl widget"""
 
@@ -185,17 +185,17 @@ class IpsLaserwidget(QWidget, Ui_LaserControl):
             pulse_timer.start()
 
     def update_laser_details(self, connection: bool):
-        """Updated laser details in the UI on connection and disconnection: 
+        """Updated laser details in the UI on connection and disconnection:
         model, serial number and wavelength."""
         if connection:
-            brand, model, serialno, wvlgth, fw_revision = self.laser.idn.split(',')
-            self.plainTextEdit_model.setPlainText(brand+', '+model)
+            brand, model, serialno, wvlgth, fw_revision = self.laser.idn.split(",")
+            self.plainTextEdit_model.setPlainText(brand + ", " + model)
             self.plainTextEdit_serialno.setPlainText(serialno)
             self.plainTextEdit_wavelength.setPlainText(wvlgth)
         else:
-            self.plainTextEdit_model.setPlainText('None')
-            self.plainTextEdit_serialno.setPlainText('None')
-            self.plainTextEdit_wavelength.setPlainText('None')
+            self.plainTextEdit_model.setPlainText("None")
+            self.plainTextEdit_serialno.setPlainText("None")
+            self.plainTextEdit_wavelength.setPlainText("None")
 
     def update_ui(self):
         """Gets the laser current inforamtions and state and
@@ -260,6 +260,6 @@ if __name__ == "__main__":
     window = QMainWindow()
     window.show()
 
-    window.setCentralWidget(IpsLaserwidget())
+    window.setCentralWidget(IpsLaserWidget())
 
     app.exec_()

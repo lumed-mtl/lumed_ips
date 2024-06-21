@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "ipscontrol"
+name = "lumed_ips"
 version = "0.1"
 authors = [
-    { name = "Victor Blanquez-Yeste", email = "victor.blanquez-yeste@polymtl.ca" },
     { name = "Guillaume Sheehy", email = "guillaume.sheehy@polymtl.ca" },
+    { name = "Victor Blanquez-Yeste", email = "victor.blanquez-yeste@polymtl.ca" },
 ]
 dependencies = ["PyVISA-py", "PyQt5", "zeroconf", "psutil", "pyserial"]
 description = "A module to control Innovative Photonic Solutions (IPS) lasers."
