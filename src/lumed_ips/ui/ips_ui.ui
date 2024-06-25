@@ -98,10 +98,6 @@
                <property name="text">
                 <string/>
                </property>
-               <property name="icon">
-                <iconset theme="view-refresh">
-                 <normaloff>../../../../../../.designer/backup</normaloff>../../../../../../.designer/backup</iconset>
-               </property>
               </widget>
              </item>
             </layout>

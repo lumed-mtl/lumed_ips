@@ -5,8 +5,9 @@ import logging
 import os
 import sys
 
+import pyqt5_fugueicons as fugue
 from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QStyle, QWidget
 
 from lumed_ips.ips_control import IpsLaser
 from lumed_ips.ui.ips_ui import Ui_LaserControl
@@ -34,9 +35,14 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
         self.available_lasers = {}
 
         # ui parameters
+        self.setup_default_ui()
         self.setup_signals_slots()
         self.setup_update_timer()
         self.logger.info("Widget launch is done")
+
+    def setup_default_ui(self):
+        icon = fugue.icon("magnifier-left")
+        self.pushButton_update.setIcon(icon)
 
     def create_logger(self):
         """Create and setup the logging for the IPS control widget"""

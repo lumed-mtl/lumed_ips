@@ -1,6 +1,7 @@
 import logging
 import sys
 
+import qtmodern.styles
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from lumed_ips.ips_widget import IpsLaserWidget
@@ -14,6 +15,10 @@ if __name__ == "__main__":
     )
 
     app = QApplication(sys.argv)
+
+    # Changing Theme
+    qtmodern.styles.light(app)
+
     window = QMainWindow()
     window.show()
 

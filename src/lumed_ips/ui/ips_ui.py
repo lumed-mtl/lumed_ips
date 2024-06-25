@@ -75,8 +75,6 @@ class Ui_LaserControl(object):
         font.setWeight(50)
         self.pushButton_update.setFont(font)
         self.pushButton_update.setText("")
-        icon = QtGui.QIcon.fromTheme("view-refresh")
-        self.pushButton_update.setIcon(icon)
         self.pushButton_update.setObjectName("pushButton_update")
         self.horizontalLayout_9.addWidget(self.pushButton_update)
         self.horizontalLayout.addLayout(self.horizontalLayout_9)
