@@ -26,10 +26,6 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-        # change pushbutton
-        style = self.pushButton_update.style()
-        icon = style.standardIcon(style.SP_BrowserReload)
-        self.pushButton_update.setIcon(icon)
         # logger
         self.create_logger()
         self.logger.info("Widget intialization")
