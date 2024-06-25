@@ -10,7 +10,15 @@ authors = [
     { name = "Guillaume Sheehy", email = "guillaume.sheehy@polymtl.ca" },
     { name = "Victor Blanquez-Yeste", email = "victor.blanquez-yeste@polymtl.ca" },
 ]
-dependencies = ["PyVISA-py", "PyQt5", "zeroconf", "psutil", "pyserial"]
+dependencies = [
+    "PyVISA-py",
+    "PyQt5",
+    "zeroconf",
+    "psutil",
+    "pyserial",
+    "qtmodern",
+    "pyqt5-fugueicons",
+]
 description = "A module to control Innovative Photonic Solutions (IPS) lasers."
 readme = "README.md"
 requires-python = ">=3.8"
