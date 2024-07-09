@@ -43,6 +43,7 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
     def setup_default_ui(self):
         icon = fugue.icon("magnifier-left")
         self.pushButton_update.setIcon(icon)
+        self.spinBox_current.setMaximum(1500)
 
     def create_logger(self):
         """Create and setup the logging for the IPS control widget"""
