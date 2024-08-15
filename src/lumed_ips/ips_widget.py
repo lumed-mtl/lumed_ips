@@ -41,8 +41,8 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
         self.logger.info("Widget launch is done")
 
     def setup_default_ui(self):
-        icon = fugue.icon("magnifier-left")
-        self.pushButton_update.setIcon(icon)
+        refresh_icon = fugue.icon("magnifier-left")
+        self.pushButton_update.setIcon(refresh_icon)
         self.spinBox_current.setMaximum(1500)
 
     def create_logger(self):
@@ -162,8 +162,8 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
             return
 
         self.laser.set_laser_current(self.spinBox_current.value())
-        self.laser.enable(1)
-        state, _, _ = self.laser.get_enable_state()
+        self.laser.set_enable(1)
+        state, _, _ = self.laser.get_enable()
         self.logger.info("Laser enabled, laser enable state: %d", state)
 
     def disable(self):
@@ -173,8 +173,8 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
             return
 
         self.laser.set_laser_current(self.spinBox_current.value())
-        self.laser.enable(0)
-        state, _, _ = self.laser.get_enable_state()
+        self.laser.set_enable(0)
+        state, _, _ = self.laser.get_enable()
         self.logger.info("Laser disabled, laser enable state: %d", state)
 
     def pulse(self):
