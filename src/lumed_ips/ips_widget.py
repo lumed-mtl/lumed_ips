@@ -24,8 +24,8 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
     """User Interface for IPS laser control.
     Subclass IpsLaserWidget to customize the Ui_LaserControl widget"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setupUi(self)
         # logger
         self.create_logger()
