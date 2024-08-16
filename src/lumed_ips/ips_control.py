@@ -1,11 +1,7 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
 
-import time
-from typing import Dict
-
 import pyvisa
 
-LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 ERROR_CODES = {
     0: "NO_ERROR",  # Hardware error
     3011: "HOUSEKEEPING",  # Hardware error
@@ -48,19 +44,22 @@ STATUS = {
 class IpsLaser:
     """Control IPS Dual Laser."""
 
-    def __init__(self):
-        self.idn = None
-        self.comport = None
-        self.serial = None
-        self.status = 2
-        self.isconnected = False
-        self.laser_current = None
-        self.laser_temp = None
-        self.laser_power = None
+    def __init__(self) -> None:
+        self.idn: str | None = None
+        self.comport: str | None = None
+        self.pyvisa_serial: pyvisa.resources.serial.SerialInstrument | None = None
+        self.isconnected: bool = False
+        self.status_code: int = 0
+        self.laser_enabled: bool = False
+        self.laser_current: float = 0
+        self.laser_temp: float = 0
+        self.laser_power: float = 0
 
         self.ressource_manage = pyvisa.ResourceManager("@py")
 
-    def find_acm_devices(self) -> Dict[str, pyvisa.highlevel.ResourceInfo]:
+    # Device lookup methods
+
+    def find_acm_devices(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
         """
         find_acm_devices find_ACM_devices finds and returns a tuple of ACM ressources that can be
         detected by pyvisa's ressource manage.
@@ -75,7 +74,7 @@ class IpsLaser:
         acm_resources = self.ressource_manage.list_resources_info(query="?*ACM?*")
         return acm_resources
 
-    def find_ips_laser(self) -> dict:
+    def find_ips_laser(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
         """
         find_ips_laser finds ips lasers available for connection through the pyvisa ressource
         manager
@@ -101,52 +100,68 @@ class IpsLaser:
         return connected_lasers
 
     ## Basic methods
+    def scpi_write(self, message: str) -> (int, str):
+        """Sends a serial message to the laser and verifies if any communication error occured.
 
-    def connect(self) -> str:
-        """Open the serial connection to the laser."""
-        try:
-            rm = pyvisa.ResourceManager("@py")
-            self.serial = rm.open_resource(self.comport)
-            self.idn = self.serial.query("*IDN?")
-            self.status = 0
-            self.isconnected = True
-            # time.sleep(0.5)
-            return "Success"
-        except Exception as e:
-            return str(e)
+        Parameter : <message> (string) : Message send to the laser by serial.
+        The command syntax for those messages is explained in the documentation provided by IPS.  %
 
-    def disconnect(self):
-        """Close the serial connection to the laser,
-        disable laser if enabled."""
-        try:
-            self.set_enable(0)
-            self.serial.close()
-            self.status = 2
-            self.isconnected = False
-            self.idn = None
-            return "Success"
-        except Exception as e:
-            return str(e)
-
-    ## Getters
-
-    def get_error(self) -> int:
-        """Returns the hardware error number, a sub-code, and a brief description."""
-        err_code, _, err_message = self.serial.query("Error?").strip()
-        return err_code
-
-    def get_id(self) -> Tuple[str, int, str]:
-        """Reports the device identification string. Will read back:
-        IPS, HPU, laser serial number, factory measured wavelength, FW revision.
-
-        Returns: <idn> : device identification string
+        Returns:
         <err_code> : communication error code
         <err_message> : communication error message
         """
-        self.idn, err_code, err_message = self.write_read("*IDN?")
-        return self.idn, err_code, err_message
+        self.pyvisa_serial.write(message)
+        err_msg = self.pyvisa_serial.query("Error?").strip()
+        err_code = err_msg.split(",")[0]
+        err_msg = err_msg.split(",")[-1].strip().strip('"')
 
-    def get_status(self):
+        return err_code, err_msg
+
+    def scpi_query(self, message: str) -> (str, int, str):
+        """Sends a serial message to the laser, reads the err_code and
+        verifies if any communication error occured.
+
+        Parameter : <message> (string) : Message send to the laser by serial.
+        The command syntax for those messages is explained in the documentation provided by IPS.  %
+
+        Returns:
+        <value> (string) : Answer provided by the laser to the serial COM.
+        <err_code> : communication error code
+        <err_msg> : communication error message
+        """
+        answer = self.pyvisa_serial.query(message).strip()
+        err_msg = self.pyvisa_serial.query("Error?").strip()
+        err_code = int(err_msg.split(",")[0])
+        err_msg = err_msg.split(",")[-1].strip().strip('"')
+
+        return answer, err_code, err_msg
+
+    def __repr__(self) -> str:
+        reprstr = (
+            f"IPSLaser(idn = '{self.idn}', "
+            f"comport = '{self.comport}', "
+            f"connected = {self.isconnected}, "
+            f"enabled = {self.laser_enabled}, "
+            f"laser current = {self.laser_current} mA, "
+            f" laser temperature = {self.laser_temp}C, "
+            f"laser power = {self.laser_power} mW)"
+        )
+        return reprstr
+
+    ## Getters
+
+    def get_id(self) -> tuple[str, int, str]:
+        """Reports the device identification string. Will read back:
+        IPS, HPU, laser serial number, factory measured wavelength, FW revision.
+
+        Returns idn, err_code
+        idn [str] : device identification string
+        err_code [int] : hardware error code
+        """
+        idn, err_code, err_msg = self.scpi_query("*IDN?")
+        return idn, err_code, err_msg
+
+    def get_status(self) -> tuple[int, int, str]:
         """Requests the status of the digital U-type.
 
         Response : 2 decimal numbers; the first number represents the board state:
@@ -156,143 +171,150 @@ class IpsLaser:
         3 = board in normal state
         4 = board in fault state
         5 = board in boot load state 6 = board not attached
+
         The second number is the number of errors in the hardware error queue.
         Use the “ERRor?” command to read the error code and information
 
         Returns: <status> : status of the digital U-type
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        status, err_code, err_message = self.write_read("Status?")
-        return status, err_code, err_message
+        answer, err_code, err_msg = self.scpi_query("Status?")
+        status_code = int(answer.split(",")[0])
 
-    def get_board_current(self) -> Tuple[float, int, str]:
+        return status_code, err_code, err_msg
+
+    def get_board_current(self) -> tuple[float, int, str]:
         """Reports the measured current draw in mA.
 
         Returns: <board_current> : measured current draw in mA
         <err_code> : communication error code
-        <err_message> : communication error message"""
-        board_current, err_code, err_message = self.write_read("Board:Current?")
+        <err_msg> : communication error message"""
+        board_current, err_code, err_msg = self.scpi_query("Board:Current?")
         board_current = float(board_current)
-        return board_current, err_code, err_message
+        return board_current, err_code, err_msg
 
-    def get_board_temperature(self):
+    def get_board_temperature(self) -> tuple[float, int, str]:
         """Reports the module case temperature in °C.
 
         Returns: <board_temp> : module case temperature in °C
         <err_code> : communication error code
-        <err_message> : communication error message"""
-        board_temp, err_code, err_message = self.write_read("Board:Temperature?")
+        <err_msg> : communication error message"""
+        board_temp, err_code, err_msg = self.scpi_query("Board:Temperature?")
         board_temp = float(board_temp)
-        return board_temp, err_code, err_message
+        return board_temp, err_code, err_msg
 
-    def get_calibrate_number(self):
+    def get_calibrate_number(self) -> tuple[int, int, str]:
         """Reports number of entries in the LUT.
 
         Returns: <cal_num> : number of entries in the LUT
         <err_code> : communication error code
-        <err_message> : communication error message"""
-        cal_num, err_code, err_message = self.write_read("Calibrate:Number?")
+        <err_msg> : communication error message"""
+        cal_num, err_code, err_msg = self.scpi_query("Calibrate:Number?")
         cal_num = int(cal_num)
-        return cal_num, err_code, err_message
+        return cal_num, err_code, err_msg
 
-    def get_calibrate_monitor(self, num: int):
+    def get_calibrate_monitor(self, num: int) -> tuple[float, int, str]:
         """Reports the PD monitor value in the requested <num> LUT entry in mV.
 
         Parameter: <num> (int) : the entry number in the LUT. Integers from 1 to 9
 
         Returns: <cal_mon> : PD monitor value in mV
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        cal_mon, err_code, err_message = self.write_read(
-            "Calibrate:Monitor? " + str(num)
-        )
+        cal_mon, err_code, err_msg = self.scpi_query("Calibrate:Monitor? " + str(num))
         cal_mon = float(cal_mon)
-        return cal_mon, err_code, err_message
+        return cal_mon, err_code, err_msg
 
-    def get_calibrate_power(self, num: int):
+    def get_calibrate_power(self, num: int) -> tuple[float, int, str]:
         """Reports the laser power value in the requested <num> LUT entry in mW.
 
         Parameter: <num> (int) : the entry number in the LUT. Integers from 1 to 9
 
         Returns: <cal_pow> : laser power value in the LUT in mW
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        cal_pow, err_code, err_message = self.write_read("Calibrate:Power? " + str(num))
+        cal_pow, err_code, err_msg = self.scpi_query("Calibrate:Power? " + str(num))
         cal_pow = float(cal_pow)
-        return cal_pow, err_code, err_message
+        return cal_pow, err_code, err_msg
 
-    def get_laser_current(self):
+    def get_laser_current(self) -> tuple[float, int, str]:
         """Reports measured laser operating current in mA.
 
         Returns: <laser_current> : measured laser operating current in mA
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        laser_current, err_code, err_message = self.write_read("Laser:Current?")
-        self.laser_current = float(laser_current)
-        return self.laser_current, err_code, err_message
+        laser_current, err_code, err_msg = self.scpi_query("Laser:Current?")
+        laser_current = float(laser_current)
+        return laser_current, err_code, err_msg
 
-    def get_laser_setpoint(self):
+    def get_laser_setpoint(self) -> tuple[float, int, str]:
         """Reports the laser operating current setpoint in mA.
 
         Returns: <setpoint> : laser operating current setpoint in mA
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        setpoint, err_code, err_message = self.write_read("Laser:Setpoint?")
-        return setpoint, err_code, err_message
+        setpoint, err_code, err_msg = self.scpi_query("Laser:Setpoint?")
+        setpoint = float(setpoint)
+        return setpoint, err_code, err_msg
 
-    def get_enable(self):
+    def get_enable(self) -> tuple[int, int, str]:
         """Reports laser enable state.
 
         Returns: <state> : laser enable state
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        state, err_code, err_message = self.write_read("Laser:Enable?")
+        state, err_code, err_msg = self.scpi_query("Laser:Enable?")
         state = int(state)
-        self.status = state
-        return state, err_code, err_message
+        return state, err_code, err_msg
 
-    def get_laser_hours(self):
+    def get_laser_hours(self) -> tuple[float, int, str]:
         """Reports the number of hours of ON time of the laser.
 
         Returns: <hours> : number of hours of ON time of the laser
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        hours, err_code, err_message = self.write_read("Laser:Hours?")
-        return hours, err_code, err_message
+        hours, err_code, err_msg = self.scpi_query("Laser:Hours?")
+        hours = float(hours)
+        return hours, err_code, err_msg
 
-    def get_analog_mode(self):
+    def get_analog_mode(self) -> tuple[int, int, str]:
         """Reports the external VBIAS enable state.
+
+        A return of 0 = Factory Default setting (VBIAS is disabled)
+        A return of 1 = External VBIAS is enabled
 
         Returns: <state> : external VBIAS enable state
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        analog_mode, err_code, err_message = self.write_read("Laser:Mode:Analog?")
-        return analog_mode, err_code, err_message
+        analog_mode, err_code, err_msg = self.scpi_query("Laser:Mode:Analog?")
+        analog_mode = int(analog_mode)
+        return analog_mode, err_code, err_msg
 
-    def get_digital_mode(self, probed_mode: int = 0):
+    def get_digital_mode(self, probed_mode: int = 0) -> tuple[int, int, str]:
         """Reports the external VBIAS enable state.
 
-        Parameter : probed_mode (int) : None or 0 to report current laser mode digital (PWM) enable
+        Parameter :
+        probed_mode (int) : None or 0 to report current laser mode digital (PWM) enable
         status, 1 to report laser mode digital (PWM) factory default setting
 
         Returns: <state> : external VBIAS enable state
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        state, err_code, err_message = self.write_read(
-            "Laser:Mode:Digital? " + str(probed_mode)
-        )
-        return state, err_code, err_message
+        scpi_str = f"Laser:Mode:Digital? {probed_mode}"
+        state, err_code, err_msg = self.scpi_query(scpi_str)
+        state = int(state)
+        return state, err_code, err_msg
 
-    def get_pwm_dutycycle(self, get_factory: bool = 0):
+    def get_pwm_dutycycle(self, get_factory: bool = 0) -> tuple[float, int, str]:
         """Reports the PWM duty cycle of laser current.
 
         Parameter : <default> (int) : None or 0 to report current laser PWM setting,
@@ -300,65 +322,54 @@ class IpsLaser:
 
         Returns: <pmw> : PWM duty cycle of laser current
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        pwm, err_code, err_message = self.write_read(
-            "Laser:Mode:PWM? " + str(int(bool(get_factory)))
-        )
-        return pwm, err_code, err_message
+        scpi_str = f"Laser:Mode:PWM? {int(bool(get_factory))}"
+        pwm, err_code, err_msg = self.scpi_query(scpi_str)
+        pwm = float(pwm)
+        return pwm, err_code, err_msg
 
-    def get_pd_level(self):
+    def get_pd_level(self) -> [float, int, str]:
         """Reports the monitor photodiode (PD) signal level.
 
         Returns: <signal> : monitor photodiode (PD) signal level
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        signal, err_code, err_message = self.write_read("Laser:Monitor?")
-        return signal, err_code, err_message
+        signal, err_code, err_msg = self.scpi_query("Laser:Monitor?")
+        signal = float(signal)
+        return signal, err_code, err_msg
 
-    def get_laser_power(self):
+    def get_laser_power(self) -> tuple[float, int, str]:
         """Reports the Laser Power in mW as derived from the calibration Look Up Table (LUT).
 
         Returns: <laser_power> : laser Power in mW as derived from the calibration Look Up Table
         (LUT)
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        laser_power, err_code, err_message = self.write_read("Laser:Power?")
-        self.laser_power = float(laser_power)
-        return self.laser_power, err_code, err_message
+        laser_power, err_code, err_msg = self.scpi_query("Laser:Power?")
+        laser_power = float(laser_power)
+        return laser_power, err_code, err_msg
 
-    def get_laser_temperature(self):
+    def get_laser_temperature(self) -> tuple[float, int, str]:
         """Reports the Laser/TEC Temperature in °C.
 
         Returns: <laser_temp> : Laser/TEC Temperature in °C
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        laser_temp, err_code, err_message = self.write_read("Laser:Temperature?")
-        self.laser_temp = float(laser_temp)
-        return self.laser_temp, err_code, err_message
+        laser_temp, err_code, err_msg = self.scpi_query("Laser:Temperature?")
+        laser_temp = float(laser_temp)
+        return laser_temp, err_code, err_msg
 
-    def get_system_errors_count(self):
+    def get_system_errors_count(self) -> tuple[float, int, str]:
         """Reports the number of errors in the communication error queue."""
-        count = self.serial.query("System:Error:Count?").strip()
-        return count
+        count, err_code, err_msg = self.scpi_query("System:Error:Count?")
+        count = int(count)
+        return count, err_code, err_msg
 
-    def get_system_errors(self):
-        # TODO: multiples errors messages
-        """Requests communication errors that may have occurred.
-
-        Returns ASCII character string containing an error number and a brief description.
-
-        If more than one error has occurred, repeated error queries are required until
-        the response is “0, No error”.
-        The list of communication error numbers is available in the IPS documentation.
-        """
-        errors = self.serial.query("System:Error?").strip()
-        return errors
-
-    def get_tec_setpoint(self, default: int = 0):
+    def get_tec_setpoint(self, factory_setting: bool = False) -> tuple[float, int, str]:
         """Reports the setpoint target for the TEC temperature.
 
         Parameter : <default> (int) : None or 0: Report current laser TEC temperature setting,
@@ -366,18 +377,18 @@ class IpsLaser:
 
         Returns: <setpoint> : setpoint target for the TEC temperature
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        setpoint, err_code, err_message = self.write_read(
-            "TEC:SETpoint? " + str(default)
-        )
-        return setpoint, err_code, err_message
+        scpi_str, err_code, err_msg = f"TEC:SETpoint? {int(bool(factory_setting))}"
+        setpoint, err_code, err_msg = self.scpi_query(scpi_str)
+        setpoint = float(setpoint)
+        return setpoint, err_code, err_msg
 
     # Setters
 
     def set_calibrate_number(
         self, num_entries: int, save_state: int = 0
-    ) -> Tuple[int, str]:
+    ) -> tuple[int, str]:
         """Sets number of desired entries in the calibration Look Up Table (LUT).
 
         Parameters :
@@ -387,14 +398,15 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write(
-            "Calibrate:Number " + str(num_entries) + " " + str(save_state)
-        )
-        return err_code, err_message
+        scpi_str = f"Calibrate:Number {num_entries} {save_state}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_calibrate_monitor(self, num: int, value: int, save_state: int = 0):
+    def set_calibrate_monitor(
+        self, num: int, value: int, save_state: int = 0
+    ) -> tuple[int, str]:
         """Sets photodiode (PD) monitor value in LUT in mV.
 
         Parameters:
@@ -405,14 +417,15 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write(
-            "Calibrate:Monitor " + str(num) + " " + str(value) + " " + str(save_state)
-        )
-        return err_code, err_message
+        scpi_str = f"Calibrate:Monitor {num} {value} {save_state}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_calibrate_power(self, num: int, value: float, save_state: int = 0):
+    def set_calibrate_power(
+        self, num: int, value: float, save_state: int = 0
+    ) -> tuple[int, str]:
         """Sets LUT power value in mW.
 
         Parameters:
@@ -423,39 +436,42 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write(
-            "Calibrate:Power " + str(num) + " " + str(value) + " " + str(save_state)
-        )
-        return err_code, err_message
+        scpi_str = f"Calibrate:Power {num} {value} {save_state}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_laser_current(self, current: float):
+    def set_laser_current(self, current: float) -> tuple[int, str]:
         """Sets laser operating current setpoint in mA.
 
         Parameter : <current> is the laser operating current in mA
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("Laser:Current " + str(current))
-        return err_code, err_message
+        scpi_str = f"Laser:Current {current}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_enable(self, enable: int):
+    def set_enable(self, enable: bool) -> tuple[int, str]:
         """Controls whether the laser is enabled or disabled.
 
         Parameter : <enable> (int) : 1/ON = Enables the Laser, 0/OFF = Disables the laser
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("Laser:Enable " + str(enable))
-        self.get_enable()  # update self.status
-        return err_code, err_message
+        scpi_str = f"Laser:Enable {str(int(bool(enable)))}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        # Update reference
+        if err_code == 0:
+            self.laser_enabled = enable
+        return err_code, err_msg
 
-    def set_analog_mode(self, analog_on: bool):
+    def set_analog_mode(self, analog_on: bool) -> tuple[int, str]:
         """Enable/Disable VBIAS input from external hardware connection on pin 8 of module.
         This function allows the user to adjust the output power of the laser
         via an external voltage bias.
@@ -465,14 +481,13 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write(
-            "Laser:Mode:Analog " + str(int(bool(analog_on)))
-        )
-        return err_code, err_message
+        scpi_str = f"Laser:Mode:Analog {int(bool(analog_on))}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_digital_mode(self, digital_on: bool):
+    def set_digital_mode(self, digital_on: bool) -> tuple[int, str]:
         """Reports digital mode (PWM) enable status.
 
         Parameter : <enable> (int): 1 = Allows digital modulation of the laser current,
@@ -480,26 +495,26 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write(
-            "Laser:Mode:Digital " + str(int(bool(digital_on)))
-        )
-        return err_code, err_message
+        scpi_str = f"Laser:Mode:Digital {int(bool(digital_on))}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_pwm_dutycycle(self, dutycycle: float):
+    def set_pwm_dutycycle(self, dutycycle: float) -> tuple[int, str]:
         """Sets PWM percent (0 – 100) for digital mode.
 
         Parameter : <duty cycle> (float): PWM duty cycle in percent from 10.0% to 100%
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("Laser:Mode:PWM " + str(dutycycle))
-        return err_code, err_message
+        scpi_str = f"Laser:Mode:PWM {dutycycle}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
-    def set_tec_setpoint(self, temperature: float):
+    def set_tec_setpoint(self, temperature: float) -> tuple[int, str]:
         """Sets the setpoint target for the TEC temperature.
 
         Parameters : <temperature> (float) : The set point temperature in oC degrees for the
@@ -510,14 +525,15 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("TEC:SETpoint " + str(temperature))
-        return err_code, err_message
+        scpi_str = f"TEC:SETpoint {temperature}"
+        err_code, err_msg = self.scpi_write(scpi_str)
+        return err_code, err_msg
 
     # Advanced methods (USE WITH CARE)
 
-    def restore_factory_settings(self):
+    def restore_factory_settings(self) -> tuple[int, str]:
         """Restores the default power-up configuration to the IPS factory default.
         To save the default parameters, you must add a "Parameters:Save command"
         following the "Parameters:Restore" command.
@@ -527,12 +543,12 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("Parameters:Restore")
-        return err_code, err_message
+        err_code, err_msg = self.scpi_write("Parameters:Restore")
+        return err_code, err_msg
 
-    def overwrite_factory_settings(self):
+    def overwrite_factory_settings(self) -> tuple[int, str]:
         """Saves current parameter settings to FLASH for use as default power-up configuration
         (Note: At present, there is no IPS factory “as shipped” setting,
         so it is recommended that users document parameters before changing them
@@ -543,93 +559,33 @@ class IpsLaser:
 
         Returns:
         <err_code> : communication error code
-        <err_message> : communication error message
+        <err_msg> : communication error message
         """
-        err_code, err_message = self.write("Parameters:Save")
-        return err_code, err_message
+        err_code, err_msg = self.scpi_write("Parameters:Save")
+        return err_code, err_msg
 
     # Compound methods
 
-    def pulse(self, duration: float):
-        """Creates a laser pulse by turning ON and OFF the laser.
+    def connect(self) -> bool:
+        """Connects the laser"""
+        try:
+            self.pyvisa_serial = self.ressource_manage.open_resource(self.comport)
+            self.isconnected = True
+            self.laser_enabled = self.get_enable()
+        except:
+            self.isconnected = False
 
-        Parameter : <duration> (float) : duration of the pulse in mS
-        """
-        if self.get_enable()[0] == 0:
-            self.set_enable(1)
-            time.sleep(duration / 1000)
-            self.set_enable(0)
-            operation = "Success"
-        else:
-            operation = "Already ON"
-        return operation
+        return self.isconnected
 
-    def get_info(self) -> dict:
-        """Returns informations about the laser as a dictionnary.
-        The informations are it's status, the COM port, the laser current , power and temperature.
-
-        Returns: <dict> : Dictionnary containing the infos.
-        """
-        info_dict = {}
-        if self.isconnected:
-            self.get_enable()  # update self.status
-            info_dict["status"] = self.status
-            info_dict["comport"] = self.comport
-            info_dict["current"] = str(self.get_laser_current()[0])
-            info_dict["power"] = str(self.get_laser_power()[0])
-            info_dict["temperature"] = str(round(self.get_laser_temperature()[0], 1))
-            info_dict["error"] = self.get_error()
-
-        else:
-            info_dict["status"] = self.status
-            info_dict["comport"] = "None"
-            info_dict["current"] = "None"
-            info_dict["power"] = "None"
-            info_dict["temperature"] = "None"
-            info_dict["error"] = "None"
-
-        return info_dict
-
-    def write(self, message):
-        """Sends a serial message to the laser and verifies if any communication error occured.
-
-        Parameter : <message> (string) : Message send to the laser by serial.
-        The command syntax for those messages is explained in the documentation provided by IPS.  %
-
-        Returns:
-        <err_code> : communication error code
-        <err_message> : communication error message
-        """
-        self.serial.write(message)
-        err_code, err_message = self.serial.query("System:Error?").strip().split(",")
-        # TODO:
-        """while self.serial.query("System:Error:Count?") != "0":
-            message = self.serial.query("System:Error?").split(',')
-            err_code += " & " + message[0]
-            err_message += " & " + message[1]"""
-        return int(err_code), err_message
-
-    def write_read(self, x):
-        """Sends a serial message to the laser, reads the answer and
-        verifies if any communication error occured.
-
-        Parameter : <message> (string) : Message send to the laser by serial.
-        The command syntax for those messages is explained in the documentation provided by IPS.  %
-
-        Returns:
-        <value> (string) : Answer provided by the laser to the serial COM.
-        <err_code> : communication error code
-        <err_message> : communication error message
-        """
-        value = self.serial.query(x).strip()
-        err_code, err_message = self.serial.query("System:Error?").strip().split(",")
-        return value, int(err_code), err_message
-
-    def __repr__(self) -> str:
-        reprstr = f"IPSLaser(idn = '{self.idn}', \
-            comport = '{self.comport}', connected = {self.isconnected})"
-
-        return reprstr
+    def disconnect(self) -> str:
+        """Close the serial connection to the laser,
+        disable laser if enabled."""
+        self.set_laser_current(0)
+        self.set_enable(0)
+        self.pyvisa_serial.close()
+        self.isconnected = False
+        self.idn = None
+        return not self.isconnected
 
 
 if __name__ == "__main__":
@@ -637,11 +593,11 @@ if __name__ == "__main__":
     ips = IpsLaser()
 
     print("... Looking for connected lasers ...\n")
-    connected_lasers = ips.find_ips_laser()
+    available_lasers = ips.find_ips_laser()
 
     print("Connected lasers:")
-    if connected_lasers:
-        for i, laser in enumerate(connected_lasers):
+    if available_lasers:
+        for i, laser in enumerate(available_lasers):
             print(f"\t{i}) ", laser)
         selected_laser = int(
             input(
@@ -657,6 +613,6 @@ if __name__ == "__main__":
     print(f"Connecting to laser {ips.comport}")
     ips.connect()
 
-    print(ips.get_error())
+    print(ips.get_system_errors())
 
     ips.disconnect()
