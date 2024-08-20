@@ -2,15 +2,22 @@
 imported from the laser_control module"""
 
 import logging
-import os
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+from time import strftime
 
 import pyqt5_fugueicons as fugue
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QMainWindow, QStyle, QWidget
+from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
 from lumed_ips.ips_control import IpsLaser
-from lumed_ips.ui.ips_ui import Ui_LaserControl
+from lumed_ips.ui.ips_ui import Ui_ipsWidget
+
+logger = logging.getLogger(__name__)
+
+LOGS_DIR = Path.home() / "logs/IPS"
+LOG_PATH = LOGS_DIR / f"{strftime('%Y_%m_%d_%H_%M_%S')}.log"
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
 STATE_COLORS = {
@@ -19,67 +26,132 @@ STATE_COLORS = {
     2: "QLabel { background-color : grey; }",
 }
 
+LOG_FORMAT = (
+    "%(asctime)s - %(levelname)s"
+    "(%(filename)s:%(funcName)s)"
+    "(%(filename)s:%(lineno)d) - "
+    "%(message)s"
+)
 
-class IpsLaserWidget(QWidget, Ui_LaserControl):
+
+def configure_logger():
+    """Configures the logger if lumed_ips is launched as a module"""
+
+    if not LOGS_DIR.parent.exists():
+        LOGS_DIR.parent.mkdir()
+    if not LOGS_DIR.exists():
+        LOGS_DIR.mkdir()
+
+    formatter = logging.Formatter(LOG_FORMAT)
+
+    terminal_handler = logging.StreamHandler()
+    terminal_handler.setFormatter(formatter)
+    file_handler = logging.FileHandler(LOG_PATH)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(terminal_handler)
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.DEBUG)
+
+
+class IpsLaserWidget(QWidget, Ui_ipsWidget):
     """User Interface for IPS laser control.
     Subclass IpsLaserWidget to customize the Ui_LaserControl widget"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setupUi(self)
+
         # logger
-        self.create_logger()
-        self.logger.info("Widget intialization")
+        logger.info("Widget intialization")
 
         self.laser = IpsLaser()
-        self.available_lasers = {}
+        self.last_enabled_state: bool = False
 
         # ui parameters
         self.setup_default_ui()
-        self.setup_signals_slots()
+        self.connect_ui_signals()
         self.setup_update_timer()
-        self.logger.info("Widget launch is done")
+        self.update_ui()
+        logger.info("Widget initialization complete")
 
     def setup_default_ui(self):
-        refresh_icon = fugue.icon("magnifier-left")
-        self.pushButton_update.setIcon(refresh_icon)
-        self.spinBox_current.setMaximum(1500)
+        self.pushbtnFindLaser.setIcon(fugue.icon("magnifier-left"))
+        self.spinboxLaserCurrent.setMaximum(1500)  # max current of IPS lasers
 
-    def create_logger(self):
-        """Create and setup the logging for the IPS control widget"""
-        # create logger
-        current_directory = os.getcwd()
-        folder_path = os.path.join(current_directory, "logs")
-        # Create the folder if it doesn't exist
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+    def connect_ui_signals(self):
+        self.pushbtnFindLaser.clicked.connect(self.find_laser)
+        self.pushbtnConnect.clicked.connect(self.connect_laser)
+        self.pushbtnDisconnect.clicked.connect(self.disconnect_laser)
+        self.pushbtnLaserEnable.clicked.connect(self.enable_laser)
+        self.pushbtnLaserDisable.clicked.connect(self.disable_laser)
+        self.spinboxLaserCurrent.valueChanged.connect(self.set_laser_current)
 
-        LOG_FORMAT = (
-            "%(asctime)s - %(levelname)s"
-            "(%(filename)s:%(funcName)s)"
-            "(%(filename)s:%(lineno)d) - "
-            "%(message)s"
-        )
+    def find_laser(self):
+        logger.info("Looking for connected lasers")
+        self.pushbtnFindLaser.setEnabled(False)
+        self.pushbtnFindLaser.setIcon(fugue.icon("hourglass"))
+        self.repaint()
+        try:
+            lasers = self.laser.find_ips_laser()
+            logger.info("Found lasers : %s", lasers)
+            self.comboboxAvailableLaser.clear()
+            for laser in lasers:
+                self.comboboxAvailableLaser.addItem(laser)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+        self.pushbtnFindLaser.setEnabled(True)
+        self.pushbtnFindLaser.setIcon(fugue.icon("magnifier-left"))
+        self.update_ui()
 
-        logging.basicConfig(
-            filename=os.path.join(folder_path, "logger.log"),
-            level=logging.DEBUG,
-            format=str(LOG_FORMAT),
-            filemode="w",
-        )
-        self.logger = logging.getLogger("IPSControlLogger")
+    def connect_laser(self):
+        logger.info("Connecting laser")
+        self.pushbtnConnect.setEnabled(False)
+        try:
+            laser_comport = self.comboboxAvailableLaser.currentText()
+            self.laser.comport = laser_comport
+            self.laser.connect()
+            logger.info("Connected laser : %s", laser_comport)
+            self.set_initial_configurations()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+        self.update_ui()
+        self.update_timer.start()
 
-    def setup_signals_slots(self):
-        """Connects the UI buttons and text infos to the IpsLaser() class
-        and enables some of the buttons."""
-        self.pushButton_update.clicked.connect(self.update_laser_choice)
-        self.pushButton_connect.clicked.connect(self.connect_laser)
-        self.pushButton_disconnect.clicked.connect(self.disconnect_laser)
-        self.spinBox_current.valueChanged.connect(self.update_current)
-        self.pushButton_on.clicked.connect(self.enable)
-        self.pushButton_off.clicked.connect(self.disable)
-        self.pushButton_pulse.clicked.connect(self.pulse)
-        self.buttons_enabling(self.laser.status)
+    def disconnect_laser(self):
+        logger.info("Disconnecting laser")
+        self.pushbtnDisconnect.setEnabled(False)
+        try:
+            self.set_initial_configurations()
+            self.laser.disconnect()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+        self.update_ui()
+        self.update_timer.stop()
+
+    def enable_laser(self):
+        logger.info("Enabling laser")
+        self.laser.set_enable(True)
+        self.last_enabled_state = True
+        self.update_ui()
+
+    def disable_laser(self):
+        logger.info("Disabling laser")
+        self.laser.set_enable(False)
+        self.last_enabled_state = False
+        self.update_ui()
+
+    def set_laser_current(self):
+        laser_current = self.spinboxLaserCurrent.value()
+        logger.info("Setting laser current : %s", laser_current)
+        self.laser.set_laser_current(laser_current)
+
+    def set_initial_configurations(self):
+        logger.info("Setting initial laser configurations")
+        logger.info("Setting laser to disable")
+        self.laser.set_enable(False)
+        logger.info("Setting laser current to 0 mA")
+        self.laser.set_laser_current(1)
 
     def setup_update_timer(self):
         """Creates the PyQt Timer and connects it to the function that updates
@@ -88,176 +160,76 @@ class IpsLaserWidget(QWidget, Ui_LaserControl):
         self.update_timer.setInterval(100)
         self.update_timer.timeout.connect(self.update_ui)
 
-    def update_laser_choice(self):
-        """Add the devices ports and names to the comboBox that allows laser connection."""
-        self.logger.info("Updating the connected devices")
-        if self.laser.isconnected is False:
-            self.available_lasers = self.laser.find_ips_laser()
-            self.comboBox_devices.clear()
-            for port, infos in self.available_lasers.items():
-                self.comboBox_devices.addItem(f"{port} | {infos['idn']}")
-                self.logger.info(
-                    "Added device : %s to the comboBox", f"{port} | {infos['idn']}"
-                )
-
-    def connect_laser(self):
-        """Connects the laser selected in the comboBox."""
-        if self.laser.isconnected is False:
-            self.logger.info("Trying to connect to a device")
-            try:
-                self.laser.comport = list(self.available_lasers)[
-                    self.comboBox_devices.currentIndex()
-                ]
-                connected = self.laser.connect()
-                if connected == "Success":
-                    self.spinBox_current.setProperty("value", 1)  # set current to 1
-                    self.update_laser_details(True)
-                    self.update_ui()
-                    self.update_timer.start()
-                    self.logger.info(
-                        "Connection to %s succesfull",
-                        list(self.available_lasers)[
-                            self.comboBox_devices.currentIndex()
-                        ],
-                    )
-                else:
-                    self.logger.warning(
-                        "Connection to %s failed. Error messsage : %s",
-                        self.available_lasers[self.comboBox_devices.currentIndex()],
-                        connected,
-                    )
-            # catch error if combobox is empty
-            except IndexError as e:
-                self.logger.warning(
-                    "Connection failed. Combobox error : %s, No laser selected.", e
-                )
-
-    def disconnect_laser(self):
-        """Disconnects the laser that is currently connected"""
-        self.logger.info("Trying to disconnect from a device")
-        disconnected = self.laser.disconnect()
-        if disconnected == "Success":
-            self.update_laser_details(False)
-            self.update_timer.stop()
-            self.update_ui()
-            self.logger.info("Disconnection succesfull")
+    def setLabelConnected(self, isconnected: bool) -> None:
+        if isconnected:
+            self.labelLaserConnected.setText("Connected")
+            self.labelLaserConnected.setStyleSheet("color:green")
         else:
-            self.logger.warning(
-                "Disconnection failed. Error messsage : %s",
-                disconnected,
-            )
+            self.labelLaserConnected.setText("Not Connected")
+            self.labelLaserConnected.setStyleSheet("color:red")
 
-    def update_current(self):
-        """Updates the laser current with the value in the spinBox."""
-        if not self.laser.isconnected:
-            self.logger.error("Laser not connected")
-            return
-
-        self.laser.set_laser_current(self.spinBox_current.value())
-
-    def enable(self):
-        """Enables the laser with the laser current selected in the laser current spinBox."""
-        if not self.laser.isconnected:
-            self.logger.error("Laser not connected")
-            return
-
-        self.laser.set_laser_current(self.spinBox_current.value())
-        self.laser.set_enable(1)
-        state, _, _ = self.laser.get_enable()
-        self.logger.info("Laser enabled, laser enable state: %d", state)
-
-    def disable(self):
-        """Disables the laser."""
-        if not self.laser.isconnected:
-            self.logger.error("Laser not connected")
-            return
-
-        self.laser.set_laser_current(self.spinBox_current.value())
-        self.laser.set_enable(0)
-        state, _, _ = self.laser.get_enable()
-        self.logger.info("Laser disabled, laser enable state: %d", state)
-
-    def pulse(self):
-        """Generates a pulse with the value (in ms) in the pulse duration spinBox."""
-        if self.laser.isconnected:
-            duration = self.spinBox_pduration.value()
-            self.logger.info("Generating pulse of %d ms", duration)
-            pulse_timer = QTimer()
-            pulse_timer.singleShot(duration, self.disable)
-            self.enable()
-            pulse_timer.start()
-
-    def update_laser_details(self, connection: bool):
-        """Updated laser details in the UI on connection and disconnection:
-        model, serial number and wavelength."""
-        if connection:
-            brand, model, serialno, wvlgth, fw_revision = self.laser.idn.split(",")
-            self.plainTextEdit_model.setPlainText(brand + ", " + model)
-            self.plainTextEdit_serialno.setPlainText(serialno)
-            self.plainTextEdit_wavelength.setPlainText(wvlgth)
+    def setLabelEnabled(self, isenabled: bool) -> None:
+        if isenabled:
+            self.labelLaserEnabled.setText("ENABLED")
+            self.labelLaserEnabled.setStyleSheet("color:red")
         else:
-            self.plainTextEdit_model.setPlainText("None")
-            self.plainTextEdit_serialno.setPlainText("None")
-            self.plainTextEdit_wavelength.setPlainText("None")
+            self.labelLaserEnabled.setText("Disabled")
+            self.labelLaserEnabled.setStyleSheet("color:green")
 
     def update_ui(self):
-        """Gets the laser current inforamtions and state and
-        updates the laser UI according to them."""
-        # laser info
-        info_dict = self.laser.get_info()
-        self.label_status.setText(LASER_STATE[info_dict["status"]])
-        self.label_led_status.setStyleSheet(STATE_COLORS[info_dict["status"]])
-        self.plainTextEdit_current_status.setPlainText(info_dict["current"])
-        self.plainTextEdit_power_status.setPlainText(info_dict["power"])
-        self.plainTextEdit_temp_status.setPlainText(info_dict["temperature"])
-        # buttons
-        self.buttons_enabling(info_dict["status"])
 
-    def buttons_enabling(self, state: int):
-        """Enables and disables the buttons depending on the laser state.
+        if not self.laser.isconnected:
+            self.pushbtnConnect.setEnabled(True)
+            self.pushbtnDisconnect.setEnabled(False)
+            self.groupboxControl.setEnabled(False)
+            self.comboboxAvailableLaser.setEnabled(True)
+            self.pushbtnFindLaser.setEnabled(True)
+            self.setLabelConnected(False)
+        else:
+            self.pushbtnConnect.setEnabled(False)
+            self.pushbtnDisconnect.setEnabled(True)
+            self.groupboxControl.setEnabled(True)
+            self.comboboxAvailableLaser.setEnabled(False)
+            self.pushbtnFindLaser.setEnabled(False)
+            self.setLabelConnected(True)
+            self.updateLaserInfo()
 
-        Parameters : <state> (int) : Laser state : 0: Idle, 1: ON, 2: Not connected
-        """
-        if state == 2:
-            self.enable_new_connections(True)
-            self.enable_laser_buttons(False)
-        elif state == 1:
-            self.enable_new_connections(False)
-            self.enable_laser_buttons(True)
-            self.pushButton_on.setEnabled(False)
-            self.pushButton_pulse.setEnabled(False)
-        elif state == 0:
-            self.enable_new_connections(False)
-            self.enable_laser_buttons(True)
+            self.pushbtnLaserEnable.setEnabled(not self.laser.get_enable()[0])
 
-    def enable_laser_buttons(self, enable: bool):
-        """Updates UI to reflet laser state.
+        if not self.comboboxAvailableLaser.count():
+            self.pushbtnConnect.setEnabled(False)
 
-        Parameters : <enable> (bool) : True to enable, False to disable.
-        """
-        self.pushButton_on.setEnabled(enable)
-        self.pushButton_off.setEnabled(enable)
-        self.pushButton_pulse.setEnabled(enable)
-        self.spinBox_current.setEnabled(enable)
-        self.spinBox_pduration.setEnabled(enable)
+    def laser_safety_check(self):
+        is_enabled = self.laser.get_enable()[0]
+        if is_enabled != self.last_enabled_state:
+            logger.warning(
+                "Laser safety trip setting laser to %s",
+                ["Disabled", "Enabled"][is_enabled],
+            )
+            self.laser.set_enable(is_enabled)
+            self.last_enabled_state = is_enabled
 
-    def enable_new_connections(self, enable: bool):
-        """Enables or disable the buttons of the UI allowing a new connection.
+    def updateLaserInfo(self):
+        _, model, serial_number, wavelength, _ = self.laser.get_id()[0].split(",")
+        self.texteditModel.setPlainText(model)
+        self.texteditSN.setPlainText(serial_number)
+        self.texteditWavelength.setPlainText(wavelength)
 
-        Parameters : <enable> (bool) : True to enable, False to disable.
-        """
-        self.pushButton_connect.setEnabled(enable)
-        self.pushButton_update.setEnabled(enable)
+        self.texteditCurrent.setPlainText(str(self.laser.get_laser_current()[0]))
+        self.texteditPower.setPlainText(str(self.laser.get_laser_power()[0]))
+        self.texteditTemperature.setPlainText(
+            f"{self.laser.get_laser_temperature()[0]:.2f}"
+        )
+
+        self.laser_safety_check()
+        self.setLabelEnabled(self.laser.get_enable()[0])
 
 
 if __name__ == "__main__":
 
     # Set up logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
-    )
+    configure_logger()
+
     # Create app window
     app = QApplication(sys.argv)
     window = QMainWindow()

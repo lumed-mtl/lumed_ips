@@ -1,6 +1,7 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
 
 import pyvisa
+from PyQt5.QtCore import pyqtSignal
 
 ERROR_CODES = {
     0: "NO_ERROR",  # Hardware error
@@ -48,13 +49,8 @@ class IpsLaser:
         self.idn: str | None = None
         self.comport: str | None = None
         self.pyvisa_serial: pyvisa.resources.serial.SerialInstrument | None = None
-        self.isconnected: bool = False
-        self.status_code: int = 0
-        self.laser_enabled: bool = False
-        self.laser_current: float = 0
-        self.laser_temp: float = 0
-        self.laser_power: float = 0
 
+        self.isconnected: bool = False
         self.ressource_manage = pyvisa.ResourceManager("@py")
 
     # Device lookup methods
@@ -92,7 +88,7 @@ class IpsLaser:
                 device = self.ressource_manage.open_resource(k)
                 device.timeout = 50
                 idn = device.query("*IDN?")
-            except:
+            except Exception as _:
                 continue
             if "IPS" in idn:
                 connected_lasers[k] = {"ressourceInfo": v, "idn": idn.strip()}
@@ -571,8 +567,7 @@ class IpsLaser:
         try:
             self.pyvisa_serial = self.ressource_manage.open_resource(self.comport)
             self.isconnected = True
-            self.laser_enabled = self.get_enable()
-        except:
+        except Exception as _:
             self.isconnected = False
 
         return self.isconnected
