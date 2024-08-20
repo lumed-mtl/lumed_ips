@@ -11,7 +11,7 @@ import pyqt5_fugueicons as fugue
 from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from lumed_ips.ips_control import IpsLaser
+from lumed_ips.ips_control import IpsLaser, LaserInfo
 from lumed_ips.ui.ips_ui import Ui_ipsWidget
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,8 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         # logger
         logger.info("Widget intialization")
 
-        self.laser = IpsLaser()
+        self.laser: IpsLaser = IpsLaser()
+        self.laser_info: LaserInfo = self.laser.get_info()
         self.last_enabled_state: bool = False
 
         # ui parameters
@@ -78,6 +79,9 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
     def setup_default_ui(self):
         self.pushbtnFindLaser.setIcon(fugue.icon("magnifier-left"))
         self.spinboxLaserCurrent.setMaximum(1500)  # max current of IPS lasers
+
+        self.spinboxPulseDuration.setEnabled(False)
+        self.pushbtnPulse.setEnabled(False)
 
     def connect_ui_signals(self):
         self.pushbtnFindLaser.clicked.connect(self.find_laser)
@@ -92,6 +96,7 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         self.pushbtnFindLaser.setEnabled(False)
         self.pushbtnFindLaser.setIcon(fugue.icon("hourglass"))
         self.repaint()
+
         try:
             lasers = self.laser.find_ips_laser()
             logger.info("Found lasers : %s", lasers)
@@ -177,30 +182,21 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
             self.labelLaserEnabled.setStyleSheet("color:green")
 
     def update_ui(self):
+        self.updateLaserInfo()
 
-        if not self.laser.isconnected:
-            self.pushbtnConnect.setEnabled(True)
-            self.pushbtnDisconnect.setEnabled(False)
-            self.groupboxControl.setEnabled(False)
-            self.comboboxAvailableLaser.setEnabled(True)
-            self.pushbtnFindLaser.setEnabled(True)
-            self.setLabelConnected(False)
-        else:
-            self.pushbtnConnect.setEnabled(False)
-            self.pushbtnDisconnect.setEnabled(True)
-            self.groupboxControl.setEnabled(True)
-            self.comboboxAvailableLaser.setEnabled(False)
-            self.pushbtnFindLaser.setEnabled(False)
-            self.setLabelConnected(True)
-            self.updateLaserInfo()
+        # Enable/disable controls if laser is connected or not
+        is_connected = self.laser_info.is_connected
+        self.pushbtnConnect.setEnabled(not is_connected)
+        self.comboboxAvailableLaser.setEnabled(not is_connected)
+        self.pushbtnFindLaser.setEnabled(not is_connected)
+        self.pushbtnDisconnect.setEnabled(is_connected)
+        self.groupboxControl.setEnabled(is_connected)
+        self.setLabelConnected(is_connected)
 
-            self.pushbtnLaserEnable.setEnabled(not self.laser.get_enable()[0])
-
-        if not self.comboboxAvailableLaser.count():
-            self.pushbtnConnect.setEnabled(False)
+        self.pushbtnLaserEnable.setEnabled(not self.laser_info.is_enabled)
 
     def laser_safety_check(self):
-        is_enabled = self.laser.get_enable()[0]
+        is_enabled = self.laser_info.is_enabled
         if is_enabled != self.last_enabled_state:
             logger.warning(
                 "Laser safety trip setting laser to %s",
@@ -210,19 +206,18 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
             self.last_enabled_state = is_enabled
 
     def updateLaserInfo(self):
-        _, model, serial_number, wavelength, _ = self.laser.get_id()[0].split(",")
-        self.texteditModel.setPlainText(model)
-        self.texteditSN.setPlainText(serial_number)
-        self.texteditWavelength.setPlainText(wavelength)
 
-        self.texteditCurrent.setPlainText(str(self.laser.get_laser_current()[0]))
-        self.texteditPower.setPlainText(str(self.laser.get_laser_power()[0]))
-        self.texteditTemperature.setPlainText(
-            f"{self.laser.get_laser_temperature()[0]:.2f}"
-        )
-
+        self.laser_info = self.laser.get_info()
         self.laser_safety_check()
-        self.setLabelEnabled(self.laser.get_enable()[0])
+
+        # update UI based on laserinfo
+        self.setLabelEnabled(self.laser_info.is_enabled)
+        self.texteditModel.setPlainText(self.laser_info.model)
+        self.texteditSN.setPlainText(self.laser_info.serial_number)
+        self.texteditWavelength.setPlainText(str(self.laser_info.wavelength))
+        self.texteditCurrent.setPlainText(str(self.laser_info.laser_current))
+        self.texteditPower.setPlainText(str(self.laser_info.laser_power))
+        self.texteditTemperature.setPlainText(str(self.laser_info.temperature))
 
 
 if __name__ == "__main__":

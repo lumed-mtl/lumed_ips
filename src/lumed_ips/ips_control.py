@@ -1,5 +1,7 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
 
+from dataclasses import dataclass
+
 import pyvisa
 from PyQt5.QtCore import pyqtSignal
 
@@ -40,6 +42,18 @@ STATUS = {
     5: "board in boot load state",
     6: "board not attached",
 }
+
+
+@dataclass
+class LaserInfo:
+    model: str = ""
+    serial_number: str = ""
+    is_connected: bool = False
+    is_enabled: bool = False
+    wavelength: float = float("nan")
+    temperature: float = float("nan")
+    laser_current: float = float("nan")
+    laser_power: float = float("nan")
 
 
 class IpsLaser:
@@ -581,6 +595,29 @@ class IpsLaser:
         self.isconnected = False
         self.idn = None
         return not self.isconnected
+
+    def get_info(self) -> LaserInfo:
+        if not self.isconnected:
+            return LaserInfo()
+
+        try:
+            _, model, serial_number, wavelength, _ = self.get_id()[0].split(",")
+            is_enabled = self.get_enable()[0]
+            temperature = self.get_laser_temperature()[0]
+            current = self.get_laser_current()[0]
+            power = self.get_laser_power()[0]
+            return LaserInfo(
+                is_connected=True,
+                is_enabled=is_enabled,
+                model=model,
+                serial_number=serial_number,
+                wavelength=wavelength,
+                temperature=temperature,
+                laser_current=current,
+                laser_power=power,
+            )
+        except Exception as _:
+            return LaserInfo()
 
 
 if __name__ == "__main__":
