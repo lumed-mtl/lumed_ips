@@ -5,10 +5,7 @@
     "source.organizeImports": "explicit"
   },
   "editor.defaultFormatter": "ms-python.black-formatter",
-  "pylint.args": [
-    "--disable=C,R, bare-except",
-    "--extension-pkg-whitelist=PyQt5"
-  ],
+  "pylint.args": ["--disable=C,R,W0718", "--extension-pkg-whitelist=PyQt5"],
   "pylint.severity": {
     "convention": "Information",
     "error": "Error",
