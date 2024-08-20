@@ -8,7 +8,7 @@ from pathlib import Path
 from time import strftime
 
 import pyqt5_fugueicons as fugue
-from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
 from lumed_ips.ips_control import IpsLaser, LaserInfo
@@ -20,11 +20,6 @@ LOGS_DIR = Path.home() / "logs/IPS"
 LOG_PATH = LOGS_DIR / f"{strftime('%Y_%m_%d_%H_%M_%S')}.log"
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
-STATE_COLORS = {
-    0: "QLabel { background-color : blue; }",
-    1: "QLabel { background-color : red; }",
-    2: "QLabel { background-color : grey; }",
-}
 
 LOG_FORMAT = (
     "%(asctime)s - %(levelname)s"
@@ -176,7 +171,7 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
     def setLabelEnabled(self, isenabled: bool) -> None:
         if isenabled:
             self.labelLaserEnabled.setText("ENABLED")
-            self.labelLaserEnabled.setStyleSheet("color:red")
+            self.labelLaserEnabled.setStyleSheet("color:orange")
         else:
             self.labelLaserEnabled.setText("Disabled")
             self.labelLaserEnabled.setStyleSheet("color:green")
@@ -208,7 +203,9 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
     def updateLaserInfo(self):
 
         self.laser_info = self.laser.get_info()
-        self.laser_safety_check()
+
+        if self.laser_info.is_connected:
+            self.laser_safety_check()
 
         # update UI based on laserinfo
         self.setLabelEnabled(self.laser_info.is_enabled)
