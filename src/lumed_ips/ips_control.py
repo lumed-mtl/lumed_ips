@@ -275,7 +275,7 @@ class IpsLaser:
         setpoint = float(setpoint)
         return setpoint, err_code, err_msg
 
-    def get_enable(self) -> tuple[int, int, str]:
+    def get_enable(self) -> tuple[bool, int, str]:
         """Reports laser enable state.
 
         Returns: <state> : laser enable state
@@ -283,7 +283,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         state, err_code, err_msg = self.scpi_query("Laser:Enable?")
-        state = int(state)
+        state = bool(state)
         return state, err_code, err_msg
 
     def get_laser_hours(self) -> tuple[float, int, str]:
