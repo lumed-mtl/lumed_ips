@@ -3,7 +3,6 @@ imported from the laser_control module"""
 
 import logging
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from time import strftime
 
@@ -61,7 +60,8 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         logger.info("Widget intialization")
 
         self.laser: IpsLaser = IpsLaser()
-        self.laser_info: IPSInfo = self.laser.get_info()
+        self.laser.get_info()
+        self.laser_info: IPSInfo = self.laser.info
         self.last_enabled_state: bool = False
 
         # ui parameters
@@ -202,7 +202,8 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
 
     def updateLaserInfo(self):
 
-        self.laser_info = self.laser.get_info()
+        self.laser.get_info()
+        self.laser_info = self.laser.info
 
         if self.laser_info.is_connected:
             self.laser_safety_check()

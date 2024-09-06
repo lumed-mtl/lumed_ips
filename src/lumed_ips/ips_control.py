@@ -4,7 +4,6 @@ import importlib.metadata
 from dataclasses import dataclass
 
 import pyvisa
-from PyQt5.QtCore import pyqtSignal
 
 ERROR_CODES = {
     0: "NO_ERROR",  # Hardware error
@@ -67,7 +66,9 @@ class IpsLaser:
         self.pyvisa_serial: pyvisa.resources.serial.SerialInstrument | None = None
 
         self.isconnected: bool = False
+        self.isenabled: bool = False
         self.ressource_manage = pyvisa.ResourceManager("@py")
+        self.info = IPSInfo()
 
     # Device lookup methods
 
@@ -153,10 +154,10 @@ class IpsLaser:
             f"IPSLaser(idn = '{self.idn}', "
             f"comport = '{self.comport}', "
             f"connected = {self.isconnected}, "
-            f"enabled = {self.laser_enabled}, "
-            f"laser current = {self.laser_current} mA, "
-            f" laser temperature = {self.laser_temp}C, "
-            f"laser power = {self.laser_power} mW)"
+            f"enabled = {self.isenabled}, "
+            f"laser current = {self.info.laser_current} mA, "
+            f" laser temperature = {self.info.laser_current}C, "
+            f"laser power = {self.info.laser_power} mW)"
         )
         return reprstr
 
@@ -480,7 +481,7 @@ class IpsLaser:
         err_code, err_msg = self.scpi_write(scpi_str)
         # Update reference
         if err_code == 0:
-            self.laser_enabled = enable
+            self.isenabled = enable
         return err_code, err_msg
 
     def set_analog_mode(self, analog_on: bool) -> tuple[int, str]:
@@ -598,9 +599,9 @@ class IpsLaser:
         self.idn = None
         return not self.isconnected
 
-    def get_info(self) -> IPSInfo:
+    def get_info(self) -> None:
         if not self.isconnected:
-            return IPSInfo()
+            self.info = IPSInfo()
 
         try:
             _, model, serial_number, wavelength, _ = self.get_id()[0].split(",")
@@ -608,7 +609,7 @@ class IpsLaser:
             temperature = self.get_laser_temperature()[0]
             current = self.get_laser_current()[0]
             power = self.get_laser_power()[0]
-            return IPSInfo(
+            self.info = IPSInfo(
                 is_connected=True,
                 is_enabled=is_enabled,
                 model=model,
@@ -619,7 +620,7 @@ class IpsLaser:
                 laser_power=power,
             )
         except Exception as _:
-            return IPSInfo()
+            self.info = IPSInfo()
 
 
 if __name__ == "__main__":
