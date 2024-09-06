@@ -283,7 +283,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         state, err_code, err_msg = self.scpi_query("Laser:Enable?")
-        state = bool(state)
+        state = bool(int(state))
         return state, err_code, err_msg
 
     def get_laser_hours(self) -> tuple[float, int, str]:
