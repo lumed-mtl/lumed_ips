@@ -1,5 +1,6 @@
 """Module to control IPS laser by comunnicating in serial with pyvisa."""
 
+import importlib.metadata
 from dataclasses import dataclass
 
 import pyvisa
@@ -54,6 +55,7 @@ class LaserInfo:
     temperature: float = float("nan")
     laser_current: float = float("nan")
     laser_power: float = float("nan")
+    lumed_ips_v: str = importlib.metadata.version("lumed_ips")
 
 
 class IpsLaser:
@@ -645,6 +647,6 @@ if __name__ == "__main__":
     print(f"Connecting to laser {ips.comport}")
     ips.connect()
 
-    print(ips.get_system_errors())
+    print(ips.get_info())
 
     ips.disconnect()
