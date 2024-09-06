@@ -11,7 +11,7 @@ import pyqt5_fugueicons as fugue
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from lumed_ips.ips_control import IpsLaser, LaserInfo
+from lumed_ips.ips_control import IPSInfo, IpsLaser
 from lumed_ips.ui.ips_ui import Ui_ipsWidget
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         logger.info("Widget intialization")
 
         self.laser: IpsLaser = IpsLaser()
-        self.laser_info: LaserInfo = self.laser.get_info()
+        self.laser_info: IPSInfo = self.laser.get_info()
         self.last_enabled_state: bool = False
 
         # ui parameters

@@ -46,7 +46,7 @@ STATUS = {
 
 
 @dataclass
-class LaserInfo:
+class IPSInfo:
     model: str = ""
     serial_number: str = ""
     is_connected: bool = False
@@ -598,9 +598,9 @@ class IpsLaser:
         self.idn = None
         return not self.isconnected
 
-    def get_info(self) -> LaserInfo:
+    def get_info(self) -> IPSInfo:
         if not self.isconnected:
-            return LaserInfo()
+            return IPSInfo()
 
         try:
             _, model, serial_number, wavelength, _ = self.get_id()[0].split(",")
@@ -608,7 +608,7 @@ class IpsLaser:
             temperature = self.get_laser_temperature()[0]
             current = self.get_laser_current()[0]
             power = self.get_laser_power()[0]
-            return LaserInfo(
+            return IPSInfo(
                 is_connected=True,
                 is_enabled=is_enabled,
                 model=model,
@@ -619,7 +619,7 @@ class IpsLaser:
                 laser_power=power,
             )
         except Exception as _:
-            return LaserInfo()
+            return IPSInfo()
 
 
 if __name__ == "__main__":
