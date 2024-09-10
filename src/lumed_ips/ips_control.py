@@ -612,9 +612,9 @@ class IpsLaser:
             self.info = IPSInfo(
                 is_connected=True,
                 is_enabled=is_enabled,
-                model=model,
-                serial_number=serial_number,
-                wavelength=wavelength,
+                model=model.strip(),
+                serial_number=serial_number.strip(),
+                wavelength=float(wavelength),
                 temperature=temperature,
                 laser_current=current,
                 laser_power=power,
