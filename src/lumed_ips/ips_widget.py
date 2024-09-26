@@ -124,10 +124,10 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         try:
             self.set_initial_configurations()
             self.laser.disconnect()
+            self.update_ui()
+            self.update_timer.stop()
         except Exception as e:
             logger.error(e, exc_info=True)
-        self.update_ui()
-        self.update_timer.stop()
 
     def enable_laser(self):
         logger.info("Enabling laser")
@@ -189,6 +189,9 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         self.setLabelConnected(is_connected)
 
         self.pushbtnLaserEnable.setEnabled(not self.laser_info.is_enabled)
+
+        if not self.spinboxLaserCurrent.hasFocus():
+            self.spinboxLaserCurrent.setValue(self.laser.target_current)
 
     def laser_safety_check(self):
         is_enabled = self.laser_info.is_enabled

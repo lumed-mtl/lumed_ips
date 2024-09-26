@@ -57,6 +57,7 @@ class IPSInfo:
     wavelength: float = float("nan")
     temperature: float = float("nan")
     laser_current: float = float("nan")
+    laser_target_current: float = float("nan")
     laser_power: float = float("nan")
     lumed_ips_v: str = importlib.metadata.version("lumed_ips")
 
@@ -72,6 +73,7 @@ class IpsLaser:
         self._mutex: Lock = Lock()
         self.isconnected: bool = False
         self.isenabled: bool = False
+        self.target_current: int = 0
         self.ressource_manage = pyvisa.ResourceManager("@py")
         self.info = IPSInfo()
 
@@ -128,6 +130,8 @@ class IpsLaser:
         <err_code> : communication error code
         <err_message> : communication error message
         """
+        if not self.isconnected:
+            return 0, ERROR_CODES[0]
         with self._mutex:
             try:
                 self.pyvisa_serial.write(message)
@@ -481,7 +485,9 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message
         """
+        current = int(current)
         scpi_str = f"Laser:Current {current}"
+        self.target_current = current
         err_code, err_msg = self._safe_scpi_write(scpi_str)
         return err_code, err_msg
 
@@ -611,9 +617,9 @@ class IpsLaser:
         disable laser if enabled."""
         self.set_laser_current(0)
         self.set_enable(0)
-        self.pyvisa_serial.close()
         self.isconnected = False
         self.idn = None
+        self.pyvisa_serial.close()
         return not self.isconnected
 
     def get_info(self) -> None:
@@ -635,6 +641,7 @@ class IpsLaser:
                 temperature=temperature,
                 laser_current=current,
                 laser_power=power,
+                laser_target_current=self.target_current,
             )
         except Exception as _:
             self.info = IPSInfo()
