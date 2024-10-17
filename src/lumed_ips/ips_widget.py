@@ -111,12 +111,17 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
             laser_comport = self.comboboxAvailableLaser.currentText()
             self.laser.comport = laser_comport
             self.laser.connect()
-            logger.info("Connected laser : %s", laser_comport)
-            self.set_initial_configurations()
+            if self.laser.isconnected:
+                logger.info("Connected laser : %s", laser_comport)
+                self.set_initial_configurations()
+            else:
+                logger.warning("Failed to connect laser")
         except Exception as e:
             logger.error(e, exc_info=True)
-        self.update_ui()
-        self.update_timer.start()
+
+        if self.laser.isconnected:
+            self.update_ui()
+            self.update_timer.start()
 
     def disconnect_laser(self):
         logger.info("Disconnecting laser")
