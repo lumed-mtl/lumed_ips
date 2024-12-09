@@ -2,6 +2,8 @@
 
 import importlib.metadata
 import logging
+import math
+import re
 from dataclasses import dataclass
 from threading import Lock
 
@@ -46,6 +48,30 @@ STATUS = {
     5: "board in boot load state",
     6: "board not attached",
 }
+
+
+def str2float(string: str) -> float:
+    """
+    str2float parses a string that may contain units and whitespaces to a float
+    using regular expression
+
+    ex:
+        str2float("12kg") -> 12
+        str2float("3.14 m") -> 3.14
+        str2float("784nm") -> 784
+
+    :param string: the string to parse
+    :type string: str
+    :return: the parsed float
+    :rtype: float
+    """
+    pattern = r"(\d+(?:\.\d+)?)(\s?[a-zA-Z]+)"
+    match = re.match(pattern, string.strip())
+    if match:
+        number, _ = match.groups()
+    else:
+        number = math.nan
+    return float(number)
 
 
 @dataclass
@@ -120,6 +146,7 @@ class IpsLaser:
         return connected_lasers
 
     ## Basic methods
+
     def _safe_scpi_write(self, message: str) -> (int, str):
         """Sends a serial message to the laser and verifies if any communication error occured.
 
@@ -221,7 +248,7 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message"""
         board_current, err_code, err_msg = self._safe_scpi_query("Board:Current?")
-        board_current = float(board_current)
+        board_current = str2float(board_current)
         return board_current, err_code, err_msg
 
     def get_board_temperature(self) -> tuple[float, int, str]:
@@ -231,7 +258,7 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message"""
         board_temp, err_code, err_msg = self._safe_scpi_query("Board:Temperature?")
-        board_temp = float(board_temp)
+        board_temp = str2float(board_temp)
         return board_temp, err_code, err_msg
 
     def get_calibrate_number(self) -> tuple[int, int, str]:
@@ -256,7 +283,7 @@ class IpsLaser:
         cal_mon, err_code, err_msg = self._safe_scpi_query(
             "Calibrate:Monitor? " + str(num)
         )
-        cal_mon = float(cal_mon)
+        cal_mon = str2float(cal_mon)
         return cal_mon, err_code, err_msg
 
     def get_calibrate_power(self, num: int) -> tuple[float, int, str]:
@@ -271,7 +298,7 @@ class IpsLaser:
         cal_pow, err_code, err_msg = self._safe_scpi_query(
             "Calibrate:Power? " + str(num)
         )
-        cal_pow = float(cal_pow)
+        cal_pow = str2float(cal_pow)
         return cal_pow, err_code, err_msg
 
     def get_laser_current(self) -> tuple[float, int, str]:
@@ -282,7 +309,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         laser_current, err_code, err_msg = self._safe_scpi_query("Laser:Current?")
-        laser_current = float(laser_current)
+        laser_current = str2float(laser_current)
         return laser_current, err_code, err_msg
 
     def get_laser_setpoint(self) -> tuple[float, int, str]:
@@ -293,7 +320,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         setpoint, err_code, err_msg = self._safe_scpi_query("Laser:Setpoint?")
-        setpoint = float(setpoint)
+        setpoint = str2float(setpoint)
         return setpoint, err_code, err_msg
 
     def get_enable(self) -> tuple[bool, int, str]:
@@ -315,7 +342,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         hours, err_code, err_msg = self._safe_scpi_query("Laser:Hours?")
-        hours = float(hours)
+        hours = str2float(hours)
         return hours, err_code, err_msg
 
     def get_analog_mode(self) -> tuple[int, int, str]:
@@ -360,7 +387,7 @@ class IpsLaser:
         """
         scpi_str = f"Laser:Mode:PWM? {int(bool(get_factory))}"
         pwm, err_code, err_msg = self._safe_scpi_query(scpi_str)
-        pwm = float(pwm)
+        pwm = str2float(pwm)
         return pwm, err_code, err_msg
 
     def get_pd_level(self) -> [float, int, str]:
@@ -371,7 +398,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         signal, err_code, err_msg = self._safe_scpi_query("Laser:Monitor?")
-        signal = float(signal)
+        signal = str2float(signal)
         return signal, err_code, err_msg
 
     def get_laser_power(self) -> tuple[float, int, str]:
@@ -383,7 +410,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         laser_power, err_code, err_msg = self._safe_scpi_query("Laser:Power?")
-        laser_power = float(laser_power)
+        laser_power = str2float(laser_power)
         return laser_power, err_code, err_msg
 
     def get_laser_temperature(self) -> tuple[float, int, str]:
@@ -394,7 +421,7 @@ class IpsLaser:
         <err_msg> : communication error message
         """
         laser_temp, err_code, err_msg = self._safe_scpi_query("Laser:Temperature?")
-        laser_temp = float(laser_temp)
+        laser_temp = str2float(laser_temp)
         return laser_temp, err_code, err_msg
 
     def get_system_errors_count(self) -> tuple[float, int, str]:
@@ -415,7 +442,7 @@ class IpsLaser:
         """
         scpi_str, err_code, err_msg = f"TEC:SETpoint? {int(bool(factory_setting))}"
         setpoint, err_code, err_msg = self._safe_scpi_query(scpi_str)
-        setpoint = float(setpoint)
+        setpoint = str2float(setpoint)
         return setpoint, err_code, err_msg
 
     # Setters
