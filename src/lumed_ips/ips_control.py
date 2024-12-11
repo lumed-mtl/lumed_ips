@@ -65,12 +65,13 @@ def str2float(string: str) -> float:
     :return: the parsed float
     :rtype: float
     """
-    pattern = r"(\d+(?:\.\d+)?)(\s?[a-zA-Z]+)"
+    pattern = r"^\s*(-?\d+(\.\d+)?)\s*(\w+)?\s*$"
     match = re.match(pattern, string.strip())
     if match:
-        number, _ = match.groups()
+        number = float(match.group(1))
     else:
         number = math.nan
+
     return float(number)
 
 
@@ -699,6 +700,10 @@ if __name__ == "__main__":
     print(f"Connecting to laser {ips.comport}")
     ips.connect()
 
-    print(ips.get_info())
+    ips.get_info()
+    print(ips.info)
+
+    print(ips.get_laser_power())
+    print(ips.get_laser_temperature())
 
     ips.disconnect()
