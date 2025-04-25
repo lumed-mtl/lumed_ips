@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lumed_ips"
-version = "0.1"
+version = "2.1"
 authors = [
     { name = "Guillaume Sheehy", email = "guillaume.sheehy@polymtl.ca" },
     { name = "Victor Blanquez-Yeste", email = "victor.blanquez-yeste@polymtl.ca" },

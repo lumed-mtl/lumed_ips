@@ -3,15 +3,14 @@ imported from the laser_control module"""
 
 import logging
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from time import strftime
 
 import pyqt5_fugueicons as fugue
-from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from lumed_ips.ips_control import IpsLaser, LaserInfo
+from lumed_ips.ips_control import IPSInfo, IpsLaser
 from lumed_ips.ui.ips_ui import Ui_ipsWidget
 
 logger = logging.getLogger(__name__)
@@ -20,11 +19,6 @@ LOGS_DIR = Path.home() / "logs/IPS"
 LOG_PATH = LOGS_DIR / f"{strftime('%Y_%m_%d_%H_%M_%S')}.log"
 
 LASER_STATE = {0: "Idle", 1: "ON", 2: "Not connected"}
-STATE_COLORS = {
-    0: "QLabel { background-color : blue; }",
-    1: "QLabel { background-color : red; }",
-    2: "QLabel { background-color : grey; }",
-}
 
 LOG_FORMAT = (
     "%(asctime)s - %(levelname)s"
@@ -66,7 +60,8 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         logger.info("Widget intialization")
 
         self.laser: IpsLaser = IpsLaser()
-        self.laser_info: LaserInfo = self.laser.get_info()
+        self.laser.get_info()
+        self.laser_info: IPSInfo = self.laser.info
         self.last_enabled_state: bool = False
 
         # ui parameters
@@ -116,12 +111,17 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
             laser_comport = self.comboboxAvailableLaser.currentText()
             self.laser.comport = laser_comport
             self.laser.connect()
-            logger.info("Connected laser : %s", laser_comport)
-            self.set_initial_configurations()
+            if self.laser.isconnected:
+                logger.info("Connected laser : %s", laser_comport)
+                self.set_initial_configurations()
+            else:
+                logger.warning("Failed to connect laser")
         except Exception as e:
             logger.error(e, exc_info=True)
-        self.update_ui()
-        self.update_timer.start()
+
+        if self.laser.isconnected:
+            self.update_ui()
+            self.update_timer.start()
 
     def disconnect_laser(self):
         logger.info("Disconnecting laser")
@@ -129,10 +129,10 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
         try:
             self.set_initial_configurations()
             self.laser.disconnect()
+            self.update_ui()
+            self.update_timer.stop()
         except Exception as e:
             logger.error(e, exc_info=True)
-        self.update_ui()
-        self.update_timer.stop()
 
     def enable_laser(self):
         logger.info("Enabling laser")
@@ -176,7 +176,7 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
     def setLabelEnabled(self, isenabled: bool) -> None:
         if isenabled:
             self.labelLaserEnabled.setText("ENABLED")
-            self.labelLaserEnabled.setStyleSheet("color:red")
+            self.labelLaserEnabled.setStyleSheet("color:orange")
         else:
             self.labelLaserEnabled.setText("Disabled")
             self.labelLaserEnabled.setStyleSheet("color:green")
@@ -195,6 +195,9 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
 
         self.pushbtnLaserEnable.setEnabled(not self.laser_info.is_enabled)
 
+        if not self.spinboxLaserCurrent.hasFocus():
+            self.spinboxLaserCurrent.setValue(self.laser.target_current)
+
     def laser_safety_check(self):
         is_enabled = self.laser_info.is_enabled
         if is_enabled != self.last_enabled_state:
@@ -207,8 +210,11 @@ class IpsLaserWidget(QWidget, Ui_ipsWidget):
 
     def updateLaserInfo(self):
 
-        self.laser_info = self.laser.get_info()
-        self.laser_safety_check()
+        self.laser.get_info()
+        self.laser_info = self.laser.info
+
+        if self.laser_info.is_connected:
+            self.laser_safety_check()
 
         # update UI based on laserinfo
         self.setLabelEnabled(self.laser_info.is_enabled)
