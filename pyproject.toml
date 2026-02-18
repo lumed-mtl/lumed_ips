@@ -41,8 +41,13 @@ package-dir = { "" = "src" }
 
 
 [tool.pytest.ini_options]
-addopts = "-q"
+# addopts = "-q"
 testpaths = ["tests"]
+log_cli = true
+log_cli_level = "INFO"
+markers = [
+    "hardware: tests that require the physical IPS laser to be connected",
+]
 
 
 [tool.black]
