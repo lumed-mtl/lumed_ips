@@ -95,7 +95,9 @@ class IpsLaser:
     def __init__(self) -> None:
         self.idn: str | None = None
         self.comport: str | None = None
-        self.pyvisa_serial: pyvisa.resources.serial.SerialInstrument | None = None
+        self.pyvisa_serial: pyvisa.resources.serial.SerialInstrument | None = (
+            None
+        )
 
         self._mutex: Lock = Lock()
         self.isconnected: bool = False
@@ -106,44 +108,111 @@ class IpsLaser:
 
     # Device lookup methods
 
-    def find_acm_devices(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
+    def find_serial_devices(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
         """
-        find_acm_devices find_ACM_devices finds and returns a tuple of ACM ressources that can be
-        detected by pyvisa's ressource manage.
+        Return serial resources likely to include USB CDC ACM and USB-serial devices.
 
-        IPS lasers appear as `ASRL/dev/ttyACMX::INSTR`
-
-        Returns
-        -------
-        dict
-            Mapping of resource name to ResourceInfo from pyvisa.
+        On Linux these commonly appear as:
+          - ASRL/dev/ttyACM*::INSTR
+          - ASRL/dev/ttyUSB*::INSTR
         """
-        acm_resources = self.ressource_manage.list_resources_info(query="?*ACM?*")
-        return acm_resources
+        rm = self.ressource_manage
 
-    def find_ips_laser(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
-        """
-        find_ips_laser finds ips lasers available for connection through the pyvisa ressource
-        manager
-
-        Returns
-        -------
-        dict
-            Available laser ressources connected
-        """
-        acm_resources = self.find_acm_devices()
-        connected_lasers = {}
-
-        for k, v in acm_resources.items():
+        # First: try common Linux patterns
+        resources = {}
+        for pattern in (
+            "?*ttyACM?*::INSTR",
+            "?*ttyUSB?*::INSTR",
+            "?*ACM?*",
+            "?*USB?*",
+        ):
             try:
-                device = self.ressource_manage.open_resource(k)
-                device.timeout = 50
-                idn = device.query("*IDN?")
-            except Exception as _:
-                continue
-            if "IPS" in idn:
-                connected_lasers[k] = {"ressourceInfo": v, "idn": idn.strip()}
+                resources.update(rm.list_resources_info(query=pattern))
+            except Exception as e:
+                logger.debug("list_resources_info(%r) failed: %s", pattern, e)
 
+        # Fallback: any ASRL device (covers non-Linux naming like ASRL3::INSTR)
+        if not resources:
+            try:
+                resources.update(rm.list_resources_info(query="ASRL?*"))
+            except Exception as e:
+                logger.debug("list_resources_info('ASRL?*') failed: %s", e)
+
+        return resources
+
+    def find_ips_laser(
+        self,
+        *,
+        baud_rate: int = 115200,
+        timeout_ms: int = 250,
+        probe_delay_s: float = 0.05,
+        idn_query: str = "*IDN?",
+        match_substring: str = "IPS",
+    ) -> dict[str, dict]:
+        """
+        Find IPS lasers available for connection through the pyvisa ResourceManager.
+
+        Returns a dict: {resource_name: {"ressourceInfo": ResourceInfo, "idn": "..."}}
+        """
+        candidates = self.find_serial_devices()
+        logger.info(
+            "find_ips_laser: %d serial candidate(s) detected", len(candidates)
+        )
+
+        connected_lasers: dict[str, dict] = {}
+
+        for resource_name, resource_info in candidates.items():
+            logger.info("find_ips_laser: probing %s", resource_name)
+            try:
+                dev = self.ressource_manage.open_resource(resource_name)
+
+                # Apply serial configuration before probing
+                try:
+                    dev.baud_rate = baud_rate
+                except Exception:
+                    pass
+
+                # Terminations matter a lot for SCPI-ish devices
+                try:
+                    dev.write_termination = "\n"
+                    dev.read_termination = "\n"
+                except Exception:
+                    pass
+
+                dev.timeout = timeout_ms
+
+                idn = dev.query(idn_query).strip()
+                logger.info(
+                    "find_ips_laser: %s replied IDN=%r", resource_name, idn
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "find_ips_laser: probe failed on %s (%s: %s)",
+                    resource_name,
+                    type(e).__name__,
+                    e,
+                )
+                continue
+            finally:
+                # Don’t leave resources open after probing
+                try:
+                    dev.close()
+                except Exception:
+                    pass
+
+            if match_substring in idn:
+                connected_lasers[resource_name] = {
+                    "ressourceInfo": resource_info,
+                    "idn": idn,
+                }
+                logger.info(
+                    "find_ips_laser: matched IPS device on %s", resource_name
+                )
+
+        logger.info(
+            "find_ips_laser: %d IPS laser(s) found", len(connected_lasers)
+        )
         return connected_lasers
 
     ## Basic methods
@@ -248,7 +317,9 @@ class IpsLaser:
         Returns: <board_current> : measured current draw in mA
         <err_code> : communication error code
         <err_msg> : communication error message"""
-        board_current, err_code, err_msg = self._safe_scpi_query("Board:Current?")
+        board_current, err_code, err_msg = self._safe_scpi_query(
+            "Board:Current?"
+        )
         board_current = str2float(board_current)
         return board_current, err_code, err_msg
 
@@ -258,7 +329,9 @@ class IpsLaser:
         Returns: <board_temp> : module case temperature in °C
         <err_code> : communication error code
         <err_msg> : communication error message"""
-        board_temp, err_code, err_msg = self._safe_scpi_query("Board:Temperature?")
+        board_temp, err_code, err_msg = self._safe_scpi_query(
+            "Board:Temperature?"
+        )
         board_temp = str2float(board_temp)
         return board_temp, err_code, err_msg
 
@@ -309,7 +382,9 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message
         """
-        laser_current, err_code, err_msg = self._safe_scpi_query("Laser:Current?")
+        laser_current, err_code, err_msg = self._safe_scpi_query(
+            "Laser:Current?"
+        )
         laser_current = str2float(laser_current)
         return laser_current, err_code, err_msg
 
@@ -356,7 +431,9 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message
         """
-        analog_mode, err_code, err_msg = self._safe_scpi_query("Laser:Mode:Analog?")
+        analog_mode, err_code, err_msg = self._safe_scpi_query(
+            "Laser:Mode:Analog?"
+        )
         analog_mode = int(analog_mode)
         return analog_mode, err_code, err_msg
 
@@ -376,7 +453,9 @@ class IpsLaser:
         state = int(state)
         return state, err_code, err_msg
 
-    def get_pwm_dutycycle(self, get_factory: bool = 0) -> tuple[float, int, str]:
+    def get_pwm_dutycycle(
+        self, get_factory: bool = 0
+    ) -> tuple[float, int, str]:
         """Reports the PWM duty cycle of laser current.
 
         Parameter : <default> (int) : None or 0 to report current laser PWM setting,
@@ -421,7 +500,9 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message
         """
-        laser_temp, err_code, err_msg = self._safe_scpi_query("Laser:Temperature?")
+        laser_temp, err_code, err_msg = self._safe_scpi_query(
+            "Laser:Temperature?"
+        )
         laser_temp = str2float(laser_temp)
         return laser_temp, err_code, err_msg
 
@@ -431,7 +512,9 @@ class IpsLaser:
         count = int(count)
         return count, err_code, err_msg
 
-    def get_tec_setpoint(self, factory_setting: bool = False) -> tuple[float, int, str]:
+    def get_tec_setpoint(
+        self, factory_setting: bool = False
+    ) -> tuple[float, int, str]:
         """Reports the setpoint target for the TEC temperature.
 
         Parameter : <default> (int) : None or 0: Report current laser TEC temperature setting,
@@ -441,7 +524,9 @@ class IpsLaser:
         <err_code> : communication error code
         <err_msg> : communication error message
         """
-        scpi_str, err_code, err_msg = f"TEC:SETpoint? {int(bool(factory_setting))}"
+        scpi_str, err_code, err_msg = (
+            f"TEC:SETpoint? {int(bool(factory_setting))}"
+        )
         setpoint, err_code, err_msg = self._safe_scpi_query(scpi_str)
         setpoint = str2float(setpoint)
         return setpoint, err_code, err_msg
@@ -633,7 +718,9 @@ class IpsLaser:
     def connect(self) -> bool:
         """Connects the laser"""
         try:
-            self.pyvisa_serial = self.ressource_manage.open_resource(self.comport)
+            self.pyvisa_serial = self.ressource_manage.open_resource(
+                self.comport
+            )
             self.isconnected = True
         except Exception as _:
             self.isconnected = False
@@ -655,7 +742,9 @@ class IpsLaser:
             self.info = IPSInfo()
 
         try:
-            _, model, serial_number, wavelength, _ = self.get_id()[0].split(",")
+            _, model, serial_number, wavelength, _ = self.get_id()[0].split(
+                ","
+            )
             is_enabled = self.get_enable()[0]
             temperature = self.get_laser_temperature()[0]
             current = self.get_laser_current()[0]
