@@ -5,11 +5,17 @@ import logging
 import math
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Lock
 
 import pyvisa
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger()
+
 
 ERROR_CODES = {
     0: "NO_ERROR",  # Hardware error
@@ -49,6 +55,9 @@ STATUS = {
     6: "board not attached",
 }
 
+_STM_BYID_PREFIX = "usb-STMicroelectronics_STM32_Virtual_COM_Port"
+_TTY_ACM_RE = re.compile(r"^/dev/ttyACM\d+$")
+
 
 def str2float(string: str) -> float:
     """
@@ -73,6 +82,30 @@ def str2float(string: str) -> float:
         number = math.nan
 
     return float(number)
+
+
+def _find_stm32_vcp_tty() -> list[str]:
+    """
+    Return the /dev/ttyACM* path for the STM32 Virtual COM Port, or None if not found.
+    """
+    ttys = []
+
+    by_id = Path("/dev/serial/by-id")
+
+    if not by_id.exists():
+        return []
+
+    for p in by_id.iterdir():
+        if p.name.startswith(_STM_BYID_PREFIX):
+            try:
+                target = str(p.resolve())  # /dev/ttyACM1
+            except Exception as e:
+                logger.debug("by-id resolve failed for %s: %s", p, e)
+
+            if _TTY_ACM_RE.match(target):
+                ttys.append(target)
+
+    return ttys
 
 
 @dataclass
@@ -108,62 +141,35 @@ class IpsLaser:
 
     # Device lookup methods
 
-    def find_serial_devices(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
-        """
-        Return serial resources likely to include USB CDC ACM and USB-serial devices.
-
-        On Linux these commonly appear as:
-          - ASRL/dev/ttyACM*::INSTR
-          - ASRL/dev/ttyUSB*::INSTR
-        """
-        rm = self.ressource_manage
-
-        # First: try common Linux patterns
-        resources = {}
-        for pattern in (
-            "?*ttyACM?*::INSTR",
-            "?*ttyUSB?*::INSTR",
-            "?*ACM?*",
-            "?*USB?*",
-        ):
-            try:
-                resources.update(rm.list_resources_info(query=pattern))
-            except Exception as e:
-                logger.debug("list_resources_info(%r) failed: %s", pattern, e)
-
-        # Fallback: any ASRL device (covers non-Linux naming like ASRL3::INSTR)
-        if not resources:
-            try:
-                resources.update(rm.list_resources_info(query="ASRL?*"))
-            except Exception as e:
-                logger.debug("list_resources_info('ASRL?*') failed: %s", e)
-
-        return resources
-
     def find_ips_laser(
         self,
         *,
         baud_rate: int = 115200,
-        timeout_ms: int = 250,
-        probe_delay_s: float = 0.05,
+        timeout_ms: int = 50,
         idn_query: str = "*IDN?",
         match_substring: str = "IPS",
     ) -> dict[str, dict]:
         """
         Find IPS lasers available for connection through the pyvisa ResourceManager.
 
-        Returns a dict: {resource_name: {"ressourceInfo": ResourceInfo, "idn": "..."}}
+        Returns:
+            {resource_name: {"ressourceInfo": dict, "idn": str}}
         """
-        candidates = self.find_serial_devices()
+        ttys = _find_stm32_vcp_tty()
+        # de-dup + stable order
+        ttys = sorted(set(ttys))
+
         logger.info(
-            "find_ips_laser: %d serial candidate(s) detected", len(candidates)
+            "find_ips_laser: %d serial candidate(s) detected", len(ttys)
         )
 
-        connected_lasers: dict[str, dict] = {}
+        available_lasers: dict[str, dict] = {}
 
-        for resource_name, resource_info in candidates.items():
-            logger.info("find_ips_laser: probing %s", resource_name)
+        for tty in ttys:
+            resource_name = f"ASRL{tty}::INSTR"
+            dev = None
             try:
+                logger.info("find_ips_laser: probing %s", resource_name)
                 dev = self.ressource_manage.open_resource(resource_name)
 
                 # Apply serial configuration before probing
@@ -179,9 +185,9 @@ class IpsLaser:
                 except Exception:
                     pass
 
-                dev.timeout = timeout_ms
+                dev.timeout = int(timeout_ms)
 
-                idn = dev.query(idn_query).strip()
+                idn = (dev.query(idn_query) or "").strip()
                 logger.info(
                     "find_ips_laser: %s replied IDN=%r", resource_name, idn
                 )
@@ -196,14 +202,16 @@ class IpsLaser:
                 continue
             finally:
                 # Don’t leave resources open after probing
-                try:
-                    dev.close()
-                except Exception:
-                    pass
+                if dev is not None:
+                    try:
+                        dev.close()
+                    except Exception:
+                        pass
 
             if match_substring in idn:
-                connected_lasers[resource_name] = {
-                    "ressourceInfo": resource_info,
+                available_lasers[resource_name] = {
+                    # You no longer have VISA ResourceInfo from list_resources_info; keep empty
+                    "ressourceInfo": {},
                     "idn": idn,
                 }
                 logger.info(
@@ -211,9 +219,9 @@ class IpsLaser:
                 )
 
         logger.info(
-            "find_ips_laser: %d IPS laser(s) found", len(connected_lasers)
+            "find_ips_laser: %d IPS laser(s) found", len(available_lasers)
         )
-        return connected_lasers
+        return available_lasers
 
     ## Basic methods
 
@@ -766,33 +774,35 @@ class IpsLaser:
 
 if __name__ == "__main__":
 
+    logger.info("Creating ips object")
     ips = IpsLaser()
 
-    print("... Looking for connected lasers ...\n")
+    logger.info("... Looking for available lasers ...\n")
     available_lasers = ips.find_ips_laser()
 
-    print("Connected lasers:")
+    logger.info("Connected lasers:")
     if available_lasers:
         for i, laser in enumerate(available_lasers):
-            print(f"\t{i}) ", laser)
+            print("\nAvailable Lasers:")
+            print(f"{i}) ", laser)
         selected_laser = int(
             input(
                 "\nSelect a laser (default : 0) :",
             )
             or 0
         )
-        ips.comport = list(ips.find_ips_laser())[selected_laser]
+        ips.comport = list(available_lasers)[selected_laser]
     else:
-        print("\tNo laser found")
+        logger.info("\tNo laser found")
         exit()
 
-    print(f"Connecting to laser {ips.comport}")
+    logger.info(f"Connecting to laser {ips.comport}")
     ips.connect()
 
     ips.get_info()
-    print(ips.info)
+    logger.info(ips.info)
 
-    print(ips.get_laser_power())
-    print(ips.get_laser_temperature())
+    logger.info(ips.get_laser_power())
+    logger.info(ips.get_laser_temperature())
 
     ips.disconnect()
