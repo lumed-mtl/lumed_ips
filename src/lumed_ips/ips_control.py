@@ -108,7 +108,10 @@ class IpsLaser:
 
     # Device lookup methods
 
-    def find_serial_devices(self) -> dict[str, pyvisa.highlevel.ResourceInfo]:
+    def find_serial_devices(
+        self,
+        pattern: str = "?*ACM?*",
+    ) -> dict[str, pyvisa.highlevel.ResourceInfo]:
         """
         Return serial resources likely to include USB CDC ACM and USB-serial devices.
 
@@ -120,16 +123,10 @@ class IpsLaser:
 
         # First: try common Linux patterns
         resources = {}
-        for pattern in (
-            "?*ttyACM?*::INSTR",
-            "?*ttyUSB?*::INSTR",
-            "?*ACM?*",
-            "?*USB?*",
-        ):
-            try:
-                resources.update(rm.list_resources_info(query=pattern))
-            except Exception as e:
-                logger.debug("list_resources_info(%r) failed: %s", pattern, e)
+        try:
+            resources.update(rm.list_resources_info(query=pattern))
+        except Exception as e:
+            logger.debug("list_resources_info(%r) failed: %s", pattern, e)
 
         # Fallback: any ASRL device (covers non-Linux naming like ASRL3::INSTR)
         if not resources:
@@ -144,7 +141,7 @@ class IpsLaser:
         self,
         *,
         baud_rate: int = 115200,
-        timeout_ms: int = 250,
+        timeout_ms: int = 50,
         probe_delay_s: float = 0.05,
         idn_query: str = "*IDN?",
         match_substring: str = "IPS",
@@ -781,7 +778,7 @@ if __name__ == "__main__":
             )
             or 0
         )
-        ips.comport = list(ips.find_ips_laser())[selected_laser]
+        ips.comport = list(available_lasers)[selected_laser]
     else:
         print("\tNo laser found")
         exit()
